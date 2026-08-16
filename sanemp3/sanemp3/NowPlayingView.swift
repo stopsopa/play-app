@@ -31,7 +31,8 @@ struct NowPlayingView: View {
                         .padding(.top, 8)
                     
                     // Album Cover with 4 Big Car Buttons Overlay
-                    coverWithCarControlsView(size: min(availableWidth - 40, isCompact ? 280 : 340))
+                    let targetSize = max(min(availableWidth - 40, isCompact ? 280 : 340), 120)
+                    coverWithCarControlsView(size: targetSize)
                     
                     // Track Title & Artist Info
                     VStack(spacing: 6) {
@@ -129,7 +130,7 @@ struct NowPlayingView: View {
                                 endPoint: .bottomTrailing
                             )
                             Image(systemName: "music.note")
-                                .font(.system(size: size * 0.35, weight: .medium))
+                                .font(.system(size: max(size * 0.35, 32), weight: .medium))
                                 .foregroundStyle(.white.opacity(0.7))
                         }
                     }
