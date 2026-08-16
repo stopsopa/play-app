@@ -67,16 +67,11 @@ public final class StorageService: ObservableObject {
             activeSecurityScopedURL = url
         }
         
-        guard let bookmarkData = try? url.bookmarkData(
-            options: .withSecurityScope,
+        let bookmarkData = (try? url.bookmarkData(
+            options: .minimalBookmark,
             includingResourceValuesForKeys: nil,
             relativeTo: nil
-        ) else {
-            // Fallback standard bookmark if security scope fails (e.g. simulator)
-            let standardBookmark = (try? url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil)) ?? Data()
-            saveFolder(url: url, bookmarkData: standardBookmark)
-            return
-        }
+        )) ?? Data()
         
         saveFolder(url: url, bookmarkData: bookmarkData)
     }
@@ -112,14 +107,8 @@ public final class StorageService: ObservableObject {
         var isStale = false
         guard let url = try? URL(
             resolvingBookmarkData: bookmark.bookmarkData,
-            options: .withSecurityScope,
-            relativeTo: nil,
             bookmarkDataIsStale: &isStale
         ) else {
-            // Try standard resolution
-            if let fallbackUrl = try? URL(resolvingBookmarkData: bookmark.bookmarkData, bookmarkDataIsStale: &isStale) {
-                openFolder(url: fallbackUrl)
-            }
             return
         }
         
