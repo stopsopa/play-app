@@ -96,7 +96,7 @@ struct FolderView: View {
                 }
             }
             .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.folder]) { result in
-                if case .success(let urls) = result, let url = urls.first { state.openFolder(url) }
+                if case .success(let url) = result { state.openFolder(url) }
             }
             .sheet(isPresented: $showAddToPlaylist) {
                 AddToPlaylistSheet(tracks: tracks.filter { selected.contains($0.id) })
@@ -129,7 +129,7 @@ struct FolderView: View {
                                 Text("\(bm.trackCount)").font(.caption).foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 16).padding(.vertical, 10)
-                            .background(.secondarySystemBackground.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+                            .background(Color(.secondarySystemBackground).opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
                         }.padding(.horizontal)
                     }
                 }
@@ -206,7 +206,7 @@ struct TrackRow: View {
         HStack(spacing: 12) {
             if isSelecting {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.title3).foregroundStyle(isSelected ? .tint : .secondary)
+                    .font(.title3).foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
             } else {
                 if isCurrent {
                     Image(systemName: state.isPlaying ? "speaker.wave.2.fill" : "speaker.fill")

@@ -66,6 +66,7 @@ struct NowPlayingView: View {
     private let haptic = UIImpactFeedbackGenerator(style: .medium)
 
     var body: some View {
+        @Bindable var bindable = state
         NavigationStack {
             GeometryReader { geo in
                 let width = geo.size.width
@@ -113,7 +114,7 @@ struct NowPlayingView: View {
                                             set: { UIApplication.shared.isIdleTimerDisabled = $0 })) {
                             Label("Prevent Screen Lock", systemImage: "sun.max.fill")
                         }
-                        Toggle(isOn: $state.carRemoteMode) {
+                        Toggle(isOn: $bindable.carRemoteMode) {
                             Label("Car Remote Mode", systemImage: "car.fill")
                         }
                         Menu("Speed (\(String(format: "%.2gx", state.playbackRate)))") {
