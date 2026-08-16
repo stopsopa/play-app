@@ -69,15 +69,36 @@ remember where I've finished
 - Use warm brown and vibrant orange as the primary accent colors and gradients throughout the app.
 
 # bluetooth media controls & indicators
-- **Bluetooth Remote Controls**:
-  - Forward / Next Track / Fast-Forward / Skip Forward: Jumps forward **+3s** (`flashForward`).
-  - Backward / Prev Track / Rewind / Skip Backward: Jumps backward **-3s** (`flashBackward`).
+- **Bluetooth Remote Multi-Tap Controls**:
+  - **Single Press Forward**: Bottom-Right button action -> advances to **Next Track** (or **Restore** if in accidental reset).
+  - **Fast Double Press Forward (twice quickly)**: Top-Right button action -> jumps forward **+3s** (`flashForward`).
+  - **Single Press Backward**: Bottom-Left button action -> **Restart** (if `> 5s`) or switches to **Prev Track** (if `<= 5s`).
+  - **Fast Double Press Backward (twice quickly)**: Top-Left button action -> jumps backward **-3s** (`flashBackward`).
 - **Visual Flash Indicator**:
-  - All LED badges removed.
-  - When `-3s` is triggered (via Bluetooth back button or on-screen tap), the top-left square illuminates with a bright golden-orange glow for ~0.5s.
-  - When `+3s` is triggered (via Bluetooth forward button or on-screen tap), the top-right square illuminates with a bright golden-orange glow for ~0.5s.
-  - Bottom squares provide dedicated Previous Track (or restart if >5s) and Next Track buttons.
-  - Streamlined layout with compact scrubber height for small screens (iPhone 8 / SE) ensuring ample room for the massive Play/Pause button.
+  - Top-Left square illuminates with a golden-orange glow for ~0.5s when `-3s` is triggered.
+  - Top-Right square illuminates with a golden-orange glow for ~0.5s when `+3s` is triggered.
+
+# button labels & dynamic behaviour
+
+| Button | Current State | Icon | Title | Subtitle | Exact Behavior When Pressed |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| **Top-Left** | Normal / Remote | `gobackward` | **`-3s`** | — | Rewinds 3 seconds (brightens square). |
+| **Top-Right** | Normal / Remote | `goforward` | **`+3s`** | — | Skips forward 3 seconds (brightens square). |
+| **Bottom-Left** | Past 5s (`> 5s`) | `arrow.counterclockwise` | **`Restart`** | `to 0:00` | Restarts current song from `0:00` & memorizes current spot. |
+| **Bottom-Left** | At start (`<= 5s`) | `backward.fill` | **`Prev Track`** | — | Switches to previous song (resuming at its saved spot if any). |
+| **Bottom-Right** | After accidental reset | `arrow.clockwise` | **`Restore`** | `to M:SS` *(e.g. to 2:15)* | Restores playback immediately to the memorized spot before the reset. |
+| **Bottom-Right** | Normal | `forward.fill` | **`Next Track`** | — | Advances to next song (resuming at its saved spot if any). |
+
+# smart position memory & accidental press recovery
+- **Track Position Memory**:
+  - Whenever leaving a track with `currentTime > 5s` (via Next, Prev, or queue change), the app saves the exact playback timestamp for that track in persistent storage.
+  - When returning to that track later (via Prev, Next, or queue), playback automatically resumes at that memorized spot.
+- **Accidental Reset Recovery (within the same song)**:
+  - When `currentTime > 5s`, pressing the bottom-left `Restart` button rewinds to 0:00 and memorizes the previous timestamp (`savedResetPosition`).
+  - While at 0:00 with a memorized reset spot, the bottom-right button dynamically updates to **Restore** (`arrow.clockwise`).
+  - **1st press of Next/Restore**: Restores playback directly back to the memorized spot before the reset.
+  - **2nd press of Next**: Advances to the next track (resuming at its saved timestamp if any).
+  - If from 0:00 the user presses **Prev** instead (`currentTime <= 5s`), it moves to the previous track (resuming at its saved timestamp if any).
 
 # environment information
 - **OS**: macOS (Apple Silicon arm64)
