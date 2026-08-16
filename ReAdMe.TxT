@@ -1,0 +1,2 @@
+in the end branch sonet4.5thinking is used for final version of the app
+it was initially developed with sonet 4.5 thinking but later when I ran out of juice I switched back to gemini flash 3.7 and it was really much faster
