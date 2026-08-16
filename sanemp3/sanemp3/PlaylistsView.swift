@@ -8,7 +8,7 @@ import SwiftUI
 // MARK: - Playlists list
 
 struct PlaylistsView: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     @State private var showCreate = false
     @State private var newName = ""
 
@@ -20,7 +20,7 @@ struct PlaylistsView: View {
                 } else {
                     List {
                         ForEach(state.playlists) { pl in
-                            NavigationLink(destination: PlaylistDetailView(playlistId: pl.id).environment(state)) {
+                            NavigationLink(destination: PlaylistDetailView(playlistId: pl.id).environmentObject(state)) {
                                 HStack(spacing: 14) {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 8)
@@ -70,7 +70,7 @@ struct PlaylistsView: View {
 // MARK: - Playlist detail
 
 struct PlaylistDetailView: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     let playlistId: UUID
     @State private var isEditing = false
     @State private var showRename = false
@@ -105,7 +105,7 @@ struct PlaylistDetailView: View {
                                 TrackRow(track: track, index: idx, isSelecting: false, isSelected: false) {
                                     state.playQueue(pl.tracks, startingAt: idx)
                                 }
-                                .environment(state)
+                                .environmentObject(state)
                             }
                             .onDelete { state.removeTrack(at: $0, from: playlistId) }
                             .onMove { state.moveTracks(from: $0, to: $1, in: playlistId) }
@@ -146,7 +146,7 @@ struct PlaylistDetailView: View {
 // MARK: - Add to playlist sheet
 
 struct AddToPlaylistSheet: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     @Environment(\.dismiss) var dismiss
     let tracks: [AudioTrack]
     @State private var newName = ""

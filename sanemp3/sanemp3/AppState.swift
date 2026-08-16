@@ -8,36 +8,37 @@ import AVFoundation
 import MediaPlayer
 import UIKit
 import SwiftUI
+import Combine
 
 // MARK: - AppState (combines StorageService + AudioPlayerService)
 
-@Observable
-final class AppState {
+@MainActor
+final class AppState: ObservableObject {
     static let shared = AppState()
 
     // MARK: - Folder / Library
-    var importedFolders: [FolderBookmark] = []
-    var currentFolderURL: URL?
-    var currentFolderName: String = "No Folder Selected"
-    var currentTracks: [AudioTrack] = []
-    var isLoadingTracks = false
-    var folderSortOption: TrackSortOption = .nameAsc
+    @Published var importedFolders: [FolderBookmark] = []
+    @Published var currentFolderURL: URL?
+    @Published var currentFolderName: String = "No Folder Selected"
+    @Published var currentTracks: [AudioTrack] = []
+    @Published var isLoadingTracks = false
+    @Published var folderSortOption: TrackSortOption = .nameAsc
 
     // MARK: - Playlists
-    var playlists: [Playlist] = []
+    @Published var playlists: [Playlist] = []
 
     // MARK: - Player
-    var currentTrack: AudioTrack?
-    var queue: [AudioTrack] = []
-    var currentIndex: Int = 0
-    var isPlaying = false
-    var currentTime: TimeInterval = 0
-    var duration: TimeInterval = 0
-    var currentArtwork: UIImage?
-    var repeatMode: RepeatMode = .all
-    var isShuffle = false
-    var playbackRate: Float = 1.0
-    var carRemoteMode = false {
+    @Published var currentTrack: AudioTrack?
+    @Published var queue: [AudioTrack] = []
+    @Published var currentIndex: Int = 0
+    @Published var isPlaying = false
+    @Published var currentTime: TimeInterval = 0
+    @Published var duration: TimeInterval = 0
+    @Published var currentArtwork: UIImage?
+    @Published var repeatMode: RepeatMode = .all
+    @Published var isShuffle = false
+    @Published var playbackRate: Float = 1.0
+    @Published var carRemoteMode = false {
         didSet { UserDefaults.standard.set(carRemoteMode, forKey: "carRemoteMode"); setupRemoteCommands() }
     }
 

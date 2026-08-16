@@ -8,7 +8,7 @@ import SwiftUI
 // MARK: - Mini Player (floating bar)
 
 struct MiniPlayer: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     let onTap: () -> Void
 
     var body: some View {
@@ -58,7 +58,7 @@ struct MiniPlayer: View {
 // MARK: - Now Playing
 
 struct NowPlayingView: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     @Environment(\.dismiss) var dismiss
     @State private var isDragging = false
     @State private var sliderValue: Double = 0
@@ -66,7 +66,6 @@ struct NowPlayingView: View {
     private let haptic = UIImpactFeedbackGenerator(style: .medium)
 
     var body: some View {
-        @Bindable var bindable = state
         NavigationStack {
             GeometryReader { geo in
                 let width = geo.size.width
@@ -82,7 +81,7 @@ struct NowPlayingView: View {
 
                     // Full-width Cover with 4 big car buttons
                     CoverWithCarButtons(size: coverSize)
-                        .environment(state)
+                        .environmentObject(state)
 
                     // Track info
                     VStack(spacing: 3) {
@@ -134,7 +133,7 @@ struct NowPlayingView: View {
                                             set: { UIApplication.shared.isIdleTimerDisabled = $0 })) {
                             Label("Prevent Screen Lock", systemImage: "sun.max.fill")
                         }
-                        Toggle(isOn: $bindable.carRemoteMode) {
+                        Toggle(isOn: $state.carRemoteMode) {
                             Label("Car Remote Mode", systemImage: "car.fill")
                         }
                         Menu("Speed (\(String(format: "%.2gx", state.playbackRate)))") {
@@ -275,7 +274,7 @@ struct NowPlayingView: View {
 // MARK: - Cover with 4 big car overlay buttons
 
 struct CoverWithCarButtons: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     let size: CGFloat
     private let haptic = UIImpactFeedbackGenerator(style: .medium)
 

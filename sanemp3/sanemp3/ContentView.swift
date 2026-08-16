@@ -6,7 +6,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var state = AppState.shared
+    @StateObject private var state = AppState.shared
     @State private var showNowPlaying = false
     @State private var selectedTab = 0
 
@@ -20,19 +20,19 @@ struct ContentView: View {
                     .tabItem { Label("Playlists", systemImage: "music.note.list") }
                     .tag(1)
             }
-            .environment(state)
+            .environmentObject(state)
 
             // Mini player
             if state.currentTrack != nil {
                 MiniPlayer { showNowPlaying = true }
-                    .environment(state)
+                    .environmentObject(state)
                     .padding(.bottom, 52)
             }
         }
         .tint(AppTheme.orange)
         .sheet(isPresented: $showNowPlaying) {
             NowPlayingView()
-                .environment(state)
+                .environmentObject(state)
                 .tint(AppTheme.orange)
         }
         .onAppear { state.restorePlaybackState() }
