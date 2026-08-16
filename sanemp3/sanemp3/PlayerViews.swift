@@ -325,19 +325,34 @@ struct CoverWithCarButtons: View {
                 .frame(maxHeight: .infinity)
 
                 HStack(spacing: 3) {
-                    // Bottom-Left: Prev / Restart
+                    // Bottom-Left: Prev Track or Restart Song
                     CarButton(
                         icon: state.currentTime > 5 ? "arrow.counterclockwise" : "backward.fill",
-                        label: state.currentTime > 5 ? "Restart" : "Prev"
+                        label: state.currentTime > 5 ? "Restart" : "Prev Track",
+                        subtitle: state.currentTime > 5 ? "to 0:00" : nil
                     ) {
                         haptic.impactOccurred()
                         state.previousTrack()
                     }
 
-                    // Bottom-Right: Next
-                    CarButton(icon: "forward.fill", label: "Next") {
-                        haptic.impactOccurred()
-                        state.nextTrack()
+                    // Bottom-Right: Next Track or Restore Saved Spot
+                    if let spot = state.savedResetPosition {
+                        CarButton(
+                            icon: "arrow.clockwise",
+                            label: "Restore",
+                            subtitle: "to \(fmt(spot))"
+                        ) {
+                            haptic.impactOccurred()
+                            state.nextTrack()
+                        }
+                    } else {
+                        CarButton(
+                            icon: "forward.fill",
+                            label: "Next Track"
+                        ) {
+                            haptic.impactOccurred()
+                            state.nextTrack()
+                        }
                     }
                 }
                 .frame(maxHeight: .infinity)
@@ -346,6 +361,11 @@ struct CoverWithCarButtons: View {
         }
         .frame(width: size, height: size)
     }
+
+    private func fmt(_ s: TimeInterval) -> String {
+        let t = Int(max(s, 0))
+        return String(format: "%d:%02d", t / 60, t % 60)
+    }
 }
 
 // MARK: - Individual car button (with square brightening when active)
@@ -353,6 +373,7 @@ struct CoverWithCarButtons: View {
 struct CarButton: View {
     let icon: String
     let label: String
+    var subtitle: String? = nil
     var isFlashing: Bool = false
     let action: () -> Void
     @State private var pressed = false
@@ -374,14 +395,20 @@ struct CarButton: View {
                     .transition(.opacity)
                 }
 
-                VStack(spacing: 4) {
+                VStack(spacing: 3) {
                     Image(systemName: icon)
-                        .font(.system(size: 34, weight: .bold))
+                        .font(.system(size: 32, weight: .bold))
                         .foregroundStyle(isFlashing ? .white : .white)
 
                     Text(label)
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundStyle(isFlashing ? .white : .white.opacity(0.95))
+
+                    if let sub = subtitle {
+                        Text(sub)
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(isFlashing ? .white : .white.opacity(0.8))
+                    }
                 }
                 .scaleEffect(isFlashing ? 1.1 : 1.0)
                 .shadow(color: isFlashing ? Color.orange : Color.black.opacity(0.8), radius: isFlashing ? 8 : 4, x: 0, y: 1)

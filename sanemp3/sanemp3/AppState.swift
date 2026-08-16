@@ -42,6 +42,8 @@ final class AppState: ObservableObject {
     // MARK: - Visual Flash Indicators (Top Squares turn brighter)
     @Published var isRewindActive = false
     @Published var isForwardActive = false
+    @Published var savedResetPosition: TimeInterval? = nil
+    private var savedTrackPositions: [String: TimeInterval] = [:]
     private var rewindResetTask: Task<Void, Never>?
     private var forwardResetTask: Task<Void, Never>?
 
@@ -62,6 +64,9 @@ final class AppState: ObservableObject {
     private var foldersURL: URL { appSupport.appendingPathComponent("folders.json") }
 
     init() {
+        if let saved = UserDefaults.standard.dictionary(forKey: "savedTrackPositions") as? [String: Double] {
+            savedTrackPositions = saved
+        }
         if let s = UserDefaults.standard.string(forKey: "folderSort"), let o = TrackSortOption(rawValue: s) {
             folderSortOption = o
         }
@@ -304,29 +309,59 @@ final class AppState: ObservableObject {
     func skipForward(_ s: TimeInterval = 3) { seek(to: currentTime + s) }
     func skipBackward(_ s: TimeInterval = 3) { seek(to: currentTime - s) }
 
+    private func saveCurrentTrackPosition() {
+        guard let track = currentTrack else { return }
+        if currentTime > 5 {
+            savedTrackPositions[track.url.path] = currentTime
+            UserDefaults.standard.set(savedTrackPositions, forKey: "savedTrackPositions")
+        }
+    }
+
     func nextTrack() {
+        // Accidental reset recovery: If the user reset the current song by mistake,
+        // pressing Next first jumps back to that memorized spot!
+        if let restoreSpot = savedResetPosition {
+            savedResetPosition = nil
+            seek(to: restoreSpot)
+            if !isPlaying { play() }
+            return
+        }
+
+        savedResetPosition = nil
+        saveCurrentTrackPosition()
         guard !queue.isEmpty else { return }
         if currentIndex < queue.count - 1 {
             currentIndex += 1
         } else {
             currentIndex = 0 // Wrap around to the first song immediately
         }
-        load(track: queue[currentIndex], autoPlay: true)
+        let nextTrk = queue[currentIndex]
+        let resumeTime = savedTrackPositions[nextTrk.url.path] ?? 0
+        load(track: nextTrk, startAt: resumeTime, autoPlay: true)
     }
 
     func previousTrack() {
         if currentTime > 5 {
+            // Accidental reset: memorize last spot before resetting to 0
+            savedResetPosition = currentTime
+            saveCurrentTrackPosition()
             seek(to: 0)
             if !isPlaying { play() }
             return
         }
+
+        // Under 5s: navigate to previous song
+        savedResetPosition = nil
+        saveCurrentTrackPosition()
         guard !queue.isEmpty else { return }
         if currentIndex > 0 {
             currentIndex -= 1
         } else {
             currentIndex = queue.count - 1 // Wrap around to last song
         }
-        load(track: queue[currentIndex], autoPlay: true)
+        let prevTrk = queue[currentIndex]
+        let resumeTime = savedTrackPositions[prevTrk.url.path] ?? 0
+        load(track: prevTrk, startAt: resumeTime, autoPlay: true)
     }
 
     // MARK: - State persistence
@@ -437,6 +472,11 @@ final class AppState: ObservableObject {
     private func setupNotifications() {
         NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: .main) { [weak self] _ in
             guard let self else { return }
+            if let track = self.currentTrack {
+                self.savedTrackPositions.removeValue(forKey: track.url.path)
+                UserDefaults.standard.set(self.savedTrackPositions, forKey: "savedTrackPositions")
+            }
+            self.savedResetPosition = nil
             if self.repeatMode == .one { self.seek(to: 0); self.play() } else { self.nextTrack() }
         }
         NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] n in
