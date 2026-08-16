@@ -1,0 +1,59 @@
+# Xcode
+#
+# gitignore template for Xcode programs
+#
+# Reference: https://raw.githubusercontent.com/github/gitignore/main/Swift.gitignore
+
+# User settings and personal states
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+
+# Build generated files and DerivedData
+build/
+DerivedData/
+*.build
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Swift Package Manager build artifacts
+.build/
+Packages/
+Package.pins
+Package.resolved
+# Note: Uncomment if you manage dependencies solely through Xcode's SPM UI and don't want resolved packages tracked:
+# .swiftpm/xcode/package.resolved
+
+# CocoaPods (if used in future)
+Pods/
+*.xcworkspace
+!default.xcworkspace
+
+# Carthage (if used in future)
+Carthage/Build/
+Carthage/Checkouts/
+
+# Accio (if used in future)
+.accio/
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Editor/Tool temporary files
+*.swp
+*~
+*.orig
