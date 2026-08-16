@@ -54,7 +54,7 @@ struct MiniPlayerView: View {
                     Button {
                         player.skipForward(seconds: 3.0)
                     } label: {
-                        Image(systemName: "goforward.3")
+                        Image(systemName: "goforward")
                             .font(.title3)
                             .foregroundStyle(.primary)
                             .frame(width: 36, height: 36)

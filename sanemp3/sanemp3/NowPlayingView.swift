@@ -144,7 +144,7 @@ struct NowPlayingView: View {
                 HStack(spacing: 3) {
                     // Top Left: -3s
                     BigCarOverlayButton(
-                        icon: "gobackward.3",
+                        icon: "gobackward",
                         label: "-3s"
                     ) {
                         hapticImpact.impactOccurred()
@@ -153,7 +153,7 @@ struct NowPlayingView: View {
                     
                     // Top Right: +3s
                     BigCarOverlayButton(
-                        icon: "goforward.3",
+                        icon: "goforward",
                         label: "+3s"
                     ) {
                         hapticImpact.impactOccurred()
