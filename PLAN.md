@@ -50,3 +50,6 @@ Use most standard way to store this data. if you can explain what are options wh
 # icon
 Generate some reasonable icon for the app. CAn be vector graphis, whatever will be suitable. Ideally maybe some music note motive.
 
+# when app is running
+prevent locking screen
+remember where I've finished
