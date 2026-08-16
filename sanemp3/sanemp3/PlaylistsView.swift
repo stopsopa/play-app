@@ -149,6 +149,7 @@ struct AddToPlaylistSheet: View {
     let tracks: [AudioTrack]
     @State private var newName = ""
     @State private var showCreate = false
+    @FocusState private var isNameFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -157,12 +158,24 @@ struct AddToPlaylistSheet: View {
                     if showCreate {
                         HStack {
                             TextField("Playlist name", text: $newName)
+                                .focused($isNameFocused)
+                                .textInputAutocapitalization(.words)
+                                .submitLabel(.done)
+                                .onSubmit {
+                                    createAndAdd()
+                                }
                             Button("Add") {
-                                state.createPlaylist(name: newName, tracks: tracks); dismiss()
-                            }.disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                createAndAdd()
+                            }
+                            .disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
                     } else {
-                        Button { showCreate = true } label: {
+                        Button {
+                            withAnimation {
+                                showCreate = true
+                            }
+                            isNameFocused = true
+                        } label: {
                             Label("New Playlist…", systemImage: "plus.circle.fill").foregroundStyle(.tint).fontWeight(.semibold)
                         }
                     }
@@ -192,5 +205,12 @@ struct AddToPlaylistSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } } }
         }
+    }
+
+    private func createAndAdd() {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        state.createPlaylist(name: trimmed, tracks: tracks)
+        dismiss()
     }
 }
