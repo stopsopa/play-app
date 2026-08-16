@@ -64,3 +64,6 @@ remember where I've finished
 
 # selection
 - Select by regex: allow providing a regex pattern in a popup/dialog to match and select files by name, provide regex examples in the UI, and remember the last used regex value between usages.
+
+# theme
+- Use warm brown and vibrant orange as the primary accent colors and gradients throughout the app.
