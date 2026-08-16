@@ -235,10 +235,14 @@ public final class AudioPlayerService: ObservableObject {
     
     public func seek(to time: TimeInterval) {
         let clampedTime = max(0, min(time, duration))
+        self.currentTime = clampedTime
         let cmTime = CMTime(seconds: clampedTime, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
         player?.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
             guard let self = self else { return }
             self.currentTime = clampedTime
+            if self.isPlaying {
+                self.player?.rate = self.playbackRate
+            }
             self.updateNowPlayingInfo()
             self.savePlaybackState()
         }

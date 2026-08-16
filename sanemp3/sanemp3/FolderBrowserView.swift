@@ -47,6 +47,15 @@ struct FolderBrowserView: View {
                 
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
+                        if isSelectionMode && !selectedTrackIds.isEmpty {
+                            Button {
+                                isAddToPlaylistPresented = true
+                            } label: {
+                                Label("Add (\(selectedTrackIds.count))", systemImage: "text.badge.plus")
+                                    .fontWeight(.bold)
+                            }
+                        }
+                        
                         if !storage.currentTracks.isEmpty {
                             // Sort Menu
                             Menu {
@@ -175,6 +184,15 @@ struct FolderBrowserView: View {
     
     private var folderPickerMenu: some View {
         Menu {
+            if !selectedTrackIds.isEmpty {
+                Button {
+                    isAddToPlaylistPresented = true
+                } label: {
+                    Label("Add Selected (\(selectedTrackIds.count)) to Playlist...", systemImage: "text.badge.plus")
+                }
+                Divider()
+            }
+            
             Button {
                 isFileImporterPresented = true
             } label: {
@@ -339,11 +357,22 @@ struct FolderBrowserView: View {
                 Label("Play Now", systemImage: "play")
             }
             
-            Button {
-                selectedTrackIds = [track.id]
-                isAddToPlaylistPresented = true
-            } label: {
-                Label("Add to Playlist...", systemImage: "plus.circle")
+            if !selectedTrackIds.isEmpty {
+                Button {
+                    if !selectedTrackIds.contains(track.id) {
+                        selectedTrackIds.insert(track.id)
+                    }
+                    isAddToPlaylistPresented = true
+                } label: {
+                    Label("Add Selected (\(selectedTrackIds.count)) to Playlist...", systemImage: "text.badge.plus")
+                }
+            } else {
+                Button {
+                    selectedTrackIds = [track.id]
+                    isAddToPlaylistPresented = true
+                } label: {
+                    Label("Add to Playlist...", systemImage: "plus.circle")
+                }
             }
         }
     }
@@ -373,7 +402,8 @@ struct FolderBrowserView: View {
             .disabled(selectedTrackIds.isEmpty)
         }
         .padding(.horizontal)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
+        .padding(.bottom, player.currentTrack != nil ? 64 : 0)
         .background(Color(uiColor: .systemBackground))
         .overlay(
             Divider(), alignment: .top

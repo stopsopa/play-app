@@ -203,9 +203,13 @@ struct NowPlayingView: View {
                 ),
                 in: 0...max(player.duration, 1.0),
                 onEditingChanged: { editing in
-                    isDraggingSlider = editing
-                    if !editing {
-                        player.seek(to: sliderValue)
+                    if editing {
+                        sliderValue = player.currentTime
+                        isDraggingSlider = true
+                    } else {
+                        let target = sliderValue
+                        isDraggingSlider = false
+                        player.seek(to: target)
                     }
                 }
             )
@@ -219,11 +223,17 @@ struct NowPlayingView: View {
                 
                 Spacer()
                 
-                let remaining = max(player.duration - (isDraggingSlider ? sliderValue : player.currentTime), 0)
+                let current = isDraggingSlider ? sliderValue : player.currentTime
+                let remaining = max(player.duration - current, 0)
                 Text("-\(formatTime(remaining))")
                     .font(.caption)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
+            }
+        }
+        .onChange(of: player.currentTime) { newTime in
+            if !isDraggingSlider {
+                sliderValue = newTime
             }
         }
     }
