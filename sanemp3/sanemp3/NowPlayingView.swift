@@ -144,8 +144,7 @@ struct NowPlayingView: View {
                     // Top Left: -3s
                     BigCarOverlayButton(
                         icon: "gobackward.3",
-                        label: "-3s",
-                        cornerStyle: [.topLeading]
+                        label: "-3s"
                     ) {
                         hapticImpact.impactOccurred()
                         player.skipBackward(seconds: 3.0)
@@ -154,8 +153,7 @@ struct NowPlayingView: View {
                     // Top Right: +3s
                     BigCarOverlayButton(
                         icon: "goforward.3",
-                        label: "+3s",
-                        cornerStyle: [.topTrailing]
+                        label: "+3s"
                     ) {
                         hapticImpact.impactOccurred()
                         player.skipForward(seconds: 3.0)
@@ -168,8 +166,7 @@ struct NowPlayingView: View {
                     // Bottom Left: Previous song or restart
                     BigCarOverlayButton(
                         icon: player.currentTime > 5.0 ? "arrow.counterclockwise" : "backward.fill",
-                        label: player.currentTime > 5.0 ? "Restart" : "Prev",
-                        cornerStyle: [.bottomLeading]
+                        label: player.currentTime > 5.0 ? "Restart" : "Prev"
                     ) {
                         hapticImpact.impactOccurred()
                         player.previousTrack()
@@ -178,8 +175,7 @@ struct NowPlayingView: View {
                     // Bottom Right: Next song
                     BigCarOverlayButton(
                         icon: "forward.fill",
-                        label: "Next",
-                        cornerStyle: [.bottomTrailing]
+                        label: "Next"
                     ) {
                         hapticImpact.impactOccurred()
                         player.nextTrack()
@@ -408,7 +404,6 @@ struct NowPlayingView: View {
 private struct BigCarOverlayButton: View {
     let icon: String
     let label: String
-    let cornerStyle: UIRectCorner
     let action: () -> Void
     
     @State private var isPressed = false
