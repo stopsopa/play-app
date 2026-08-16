@@ -61,3 +61,6 @@ Generate some reasonable icon for the app. CAn be vector graphis, whatever will 
 # when app is running
 prevent locking screen
 remember where I've finished
+
+# selection
+- Select by regex: allow providing a regex pattern in a popup/dialog to match and select files by name, provide regex examples in the UI, and remember the last used regex value between usages.
