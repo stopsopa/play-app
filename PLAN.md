@@ -42,6 +42,14 @@ So again: two main sections:
 in both control over ordering songs (defaul by name alphabetical).
 From playlist we can remove song. (it will not remove file physically, in fact we can't remove them physicall from our app). just remove from playlist.
 
+# Problems before
+
+I've already tried in the past to create such app with AI. And I ran into issues:
+- when user select subset of songs there was not clear button to 'add to the playlist' selected songs (and create new playlist along the way or point to existing ones)
+- when manually rewinding with scrollbar (progress bar) to different place in the mp4 app no longer updated the scrollbar (progress bar) to reflect current timestamp mp3 is playing.
+
+Try to avoid these issues.
+
 # Parts to figure out
 I'm not sure what is most standard way to store data like what directory was imported (importing ideally without making copy of files from 'files' app in our app. just tap in to the existing folder).
 And where to store playlists and ordering for directories and playlist. 
@@ -53,3 +61,9 @@ Generate some reasonable icon for the app. CAn be vector graphis, whatever will 
 # when app is running
 prevent locking screen
 remember where I've finished
+
+# selection
+- Select by regex: allow providing a regex pattern in a popup/dialog to match and select files by name, provide regex examples in the UI, and remember the last used regex value between usages.
+
+# theme
+- Use warm brown and vibrant orange as the primary accent colors and gradients throughout the app.
