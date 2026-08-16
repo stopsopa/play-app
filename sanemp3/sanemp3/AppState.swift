@@ -11,7 +11,6 @@ import SwiftUI
 
 // MARK: - AppState (combines StorageService + AudioPlayerService)
 
-@MainActor
 final class AppState: ObservableObject {
     static let shared = AppState()
 
