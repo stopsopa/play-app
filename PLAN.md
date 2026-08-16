@@ -67,3 +67,23 @@ remember where I've finished
 
 # theme
 - Use warm brown and vibrant orange as the primary accent colors and gradients throughout the app.
+
+# bluetooth media controls & indicators
+- **Bluetooth Remote Controls**:
+  - Forward / Next Track / Fast-Forward / Skip Forward: Jumps forward **+3s** (`flashForward`).
+  - Backward / Prev Track / Rewind / Skip Backward: Jumps backward **-3s** (`flashBackward`).
+- **Visual Flash Indicator**:
+  - All LED badges removed.
+  - When `-3s` is triggered (via Bluetooth back button or on-screen tap), the top-left square illuminates with a bright golden-orange glow for ~0.5s.
+  - When `+3s` is triggered (via Bluetooth forward button or on-screen tap), the top-right square illuminates with a bright golden-orange glow for ~0.5s.
+  - Bottom squares provide dedicated Previous Track (or restart if >5s) and Next Track buttons.
+  - Streamlined layout with compact scrubber height for small screens (iPhone 8 / SE) ensuring ample room for the massive Play/Pause button.
+
+# environment information
+- **OS**: macOS (Apple Silicon arm64)
+- **Shell**: `zsh`
+- **Swift Version**: Apple Swift 6.3.3 (`swiftlang-6.3.3.1.3 clang-2100.1.1.101`)
+- **Active Developer Directory**: `/Library/Developer/CommandLineTools`
+- **Target Platform**: iOS (iPhone)
+- **Project Location**: `sanemp3/sanemp3.xcodeproj`
+- **Frameworks Used**: SwiftUI, AVFoundation, MediaPlayer (`MPRemoteCommandCenter`, `MPNowPlayingInfoCenter`)
