@@ -399,6 +399,60 @@ final class AppState: ObservableObject {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 
+    // MARK: - Bluetooth Remote Multi-Tap Handlers (Single press vs Fast double-press)
+
+    private var forwardClickCount = 0
+    private var forwardTapTask: Task<Void, Never>?
+
+    private var backwardClickCount = 0
+    private var backwardTapTask: Task<Void, Never>?
+
+    func handleRemoteForward() {
+        forwardClickCount += 1
+        if forwardClickCount == 1 {
+            forwardTapTask?.cancel()
+            forwardTapTask = Task { @MainActor in
+                // Wait 380ms to see if a 2nd press arrives
+                try? await Task.sleep(nanoseconds: 380_000_000)
+                if !Task.isCancelled {
+                    if self.forwardClickCount == 1 {
+                        // Single press: bottom-right button action (Next Track or Restore)
+                        self.nextTrack()
+                    }
+                    self.forwardClickCount = 0
+                }
+            }
+        } else if forwardClickCount >= 2 {
+            // Double press fast: top-right button action (+3s forward)
+            forwardTapTask?.cancel()
+            forwardClickCount = 0
+            flashForward()
+        }
+    }
+
+    func handleRemoteBackward() {
+        backwardClickCount += 1
+        if backwardClickCount == 1 {
+            backwardTapTask?.cancel()
+            backwardTapTask = Task { @MainActor in
+                // Wait 380ms to see if a 2nd press arrives
+                try? await Task.sleep(nanoseconds: 380_000_000)
+                if !Task.isCancelled {
+                    if self.backwardClickCount == 1 {
+                        // Single press: bottom-left button action (Restart or Prev Track)
+                        self.previousTrack()
+                    }
+                    self.backwardClickCount = 0
+                }
+            }
+        } else if backwardClickCount >= 2 {
+            // Double press fast: top-left button action (-3s rewind)
+            backwardTapTask?.cancel()
+            backwardClickCount = 0
+            flashBackward()
+        }
+    }
+
     private func setupRemoteCommands() {
         let cc = MPRemoteCommandCenter.shared()
         cc.playCommand.removeTarget(nil); cc.pauseCommand.removeTarget(nil)
@@ -420,44 +474,46 @@ final class AppState: ObservableObject {
         cc.stopCommand.isEnabled = true
         cc.stopCommand.addTarget { [weak self] _ in self?.stop(); return .success }
 
-        // Skip buttons: rewind / forward 3s
+        // Skip buttons / interval commands
         cc.skipForwardCommand.isEnabled = true
         cc.skipForwardCommand.preferredIntervals = [3]
         cc.skipForwardCommand.addTarget { [weak self] _ in
-            self?.flashForward()
+            self?.handleRemoteForward()
             return .success
         }
 
         cc.skipBackwardCommand.isEnabled = true
         cc.skipBackwardCommand.preferredIntervals = [3]
         cc.skipBackwardCommand.addTarget { [weak self] _ in
-            self?.flashBackward()
+            self?.handleRemoteBackward()
             return .success
         }
 
-        // Bluetooth Remote Forward buttons (Next track / Seek forward): all jump +3s
+        // Bluetooth Remote Forward buttons (Next track / Seek forward):
+        // Single press -> Next Track / Restore | Double press fast -> +3s
         cc.nextTrackCommand.isEnabled = true
         cc.nextTrackCommand.addTarget { [weak self] _ in
-            self?.flashForward()
+            self?.handleRemoteForward()
             return .success
         }
 
         cc.seekForwardCommand.isEnabled = true
         cc.seekForwardCommand.addTarget { [weak self] _ in
-            self?.flashForward()
+            self?.handleRemoteForward()
             return .success
         }
 
-        // Bluetooth Remote Backward buttons (Prev track / Seek backward): all jump -3s
+        // Bluetooth Remote Backward buttons (Prev track / Seek backward):
+        // Single press -> Restart / Prev Track | Double press fast -> -3s
         cc.previousTrackCommand.isEnabled = true
         cc.previousTrackCommand.addTarget { [weak self] _ in
-            self?.flashBackward()
+            self?.handleRemoteBackward()
             return .success
         }
 
         cc.seekBackwardCommand.isEnabled = true
         cc.seekBackwardCommand.addTarget { [weak self] _ in
-            self?.flashBackward()
+            self?.handleRemoteBackward()
             return .success
         }
 
