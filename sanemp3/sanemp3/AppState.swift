@@ -178,44 +178,101 @@ final class AppState {
     func playQueue(_ newQueue: [AudioTrack], startingAt index: Int = 0) {
         guard !newQueue.isEmpty, newQueue.indices.contains(index) else { return }
         originalQueue = newQueue
-        if isShuffle {
-            var s = newQueue; let t = s.remove(at: index); s.shuffle(); s.insert(t, at: 0)
-            queue = s; currentIndex = 0
-        } else {
-            queue = newQueue; currentIndex = index
-        }
+        queue = newQueue
+        currentIndex = index
         load(track: queue[currentIndex], autoPlay: true)
     }
 
     private func load(track: AudioTrack, startAt time: TimeInterval = 0, autoPlay: Bool = true) {
-        currentTrack = track; currentTime = time; duration = track.duration; currentArtwork = nil
-        if let t = timeObserverToken, let p = player { p.removeTimeObserver(t); timeObserverToken = nil }
+        currentTrack = track
+        currentTime = time
+        duration = track.duration
+        currentArtwork = nil
+
+        if let t = timeObserverToken, let p = player {
+            p.removeTimeObserver(t)
+            timeObserverToken = nil
+        }
+
         let item = AVPlayerItem(url: track.url)
-        if player == nil { player = AVPlayer(playerItem: item) } else { player!.replaceCurrentItem(with: item) }
-        if time > 0 { player!.seek(to: CMTime(seconds: time, preferredTimescale: 44100)) }
+
+        if player == nil {
+            player = AVPlayer(playerItem: item)
+            player?.automaticallyWaitsToMinimizeStalling = false
+        } else {
+            player?.automaticallyWaitsToMinimizeStalling = false
+            player?.replaceCurrentItem(with: item)
+        }
+
+        if time > 0 {
+            player?.seek(to: CMTime(seconds: time, preferredTimescale: 44100), toleranceBefore: .zero, toleranceAfter: .zero)
+        }
+
         setupTimeObserver()
-        if autoPlay { try? AVAudioSession.sharedInstance().setActive(true); player!.rate = playbackRate; player!.play(); isPlaying = true }
-        else { isPlaying = false }
-        updateNowPlaying(); savePlaybackState()
-        Task { if let art = await track.loadArtwork() { currentArtwork = art; updateNowPlaying() } }
+
+        if autoPlay {
+            try? AVAudioSession.sharedInstance().setActive(true)
+            player?.playImmediately(atRate: playbackRate)
+            isPlaying = true
+        } else {
+            isPlaying = false
+        }
+
+        updateNowPlaying()
+        savePlaybackState()
+
+        Task {
+            if let art = await track.loadArtwork() {
+                currentArtwork = art
+                updateNowPlaying()
+            }
+        }
     }
 
     func togglePlay() { isPlaying ? pause() : play() }
+
     func play() {
-        guard let p = player else { if let t = currentTrack { load(track: t, startAt: currentTime) }; return }
+        guard let p = player else {
+            if let t = currentTrack {
+                load(track: t, startAt: currentTime, autoPlay: true)
+            } else if !queue.isEmpty {
+                load(track: queue[currentIndex], autoPlay: true)
+            }
+            return
+        }
         try? AVAudioSession.sharedInstance().setActive(true)
-        p.rate = playbackRate; p.play(); isPlaying = true; updateNowPlaying(); savePlaybackState()
+        p.playImmediately(atRate: playbackRate)
+        isPlaying = true
+        updateNowPlaying()
+        savePlaybackState()
     }
-    func pause() { player?.pause(); isPlaying = false; updateNowPlaying(); savePlaybackState() }
-    func stop() { player?.pause(); player?.seek(to: .zero); isPlaying = false; currentTime = 0; updateNowPlaying(); savePlaybackState() }
+
+    func pause() {
+        player?.pause()
+        isPlaying = false
+        updateNowPlaying()
+        savePlaybackState()
+    }
+
+    func stop() {
+        player?.pause()
+        player?.seek(to: .zero)
+        isPlaying = false
+        currentTime = 0
+        updateNowPlaying()
+        savePlaybackState()
+    }
 
     func seek(to time: TimeInterval) {
         let t = max(0, min(time, duration))
         currentTime = t
         player?.seek(to: CMTime(seconds: t, preferredTimescale: 44100), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
             guard let self else { return }
-            if self.isPlaying { self.player?.rate = self.playbackRate }
-            self.updateNowPlaying(); self.savePlaybackState()
+            if self.isPlaying {
+                self.player?.playImmediately(atRate: self.playbackRate)
+            }
+            self.updateNowPlaying()
+            self.savePlaybackState()
         }
     }
 
@@ -224,35 +281,27 @@ final class AppState {
 
     func nextTrack() {
         guard !queue.isEmpty else { return }
-        if currentIndex < queue.count - 1 { currentIndex += 1 }
-        else if repeatMode == .all { currentIndex = 0 }
-        else { stop(); return }
+        if currentIndex < queue.count - 1 {
+            currentIndex += 1
+        } else {
+            currentIndex = 0 // Wrap around to the first song immediately
+        }
         load(track: queue[currentIndex], autoPlay: true)
     }
 
     func previousTrack() {
-        if currentTime > 5 { seek(to: 0); return }
-        guard !queue.isEmpty else { return }
-        if currentIndex > 0 { currentIndex -= 1 }
-        else if repeatMode == .all { currentIndex = queue.count - 1 }
-        else { seek(to: 0); return }
-        load(track: queue[currentIndex], autoPlay: true)
-    }
-
-    func toggleShuffle() {
-        isShuffle.toggle()
-        guard let cur = currentTrack else { return }
-        if isShuffle {
-            var s = originalQueue; s.removeAll { $0.id == cur.id }; s.shuffle(); s.insert(cur, at: 0)
-            queue = s; currentIndex = 0
-        } else {
-            queue = originalQueue
-            currentIndex = originalQueue.firstIndex(where: { $0.id == cur.id }) ?? 0
+        if currentTime > 5 {
+            seek(to: 0)
+            if !isPlaying { play() }
+            return
         }
-    }
-
-    func toggleRepeat() {
-        switch repeatMode { case .off: repeatMode = .all; case .all: repeatMode = .one; case .one: repeatMode = .off }
+        guard !queue.isEmpty else { return }
+        if currentIndex > 0 {
+            currentIndex -= 1
+        } else {
+            currentIndex = queue.count - 1 // Wrap around to last song
+        }
+        load(track: queue[currentIndex], autoPlay: true)
     }
 
     // MARK: - State persistence
