@@ -8,7 +8,7 @@ import SwiftUI
 // MARK: - Mini Player (floating bar)
 
 struct MiniPlayer: View {
-    @EnvironmentObject var state: AppState
+    @Environment(AppState.self) var state
     let onTap: () -> Void
 
     var body: some View {
@@ -58,7 +58,7 @@ struct MiniPlayer: View {
 // MARK: - Now Playing
 
 struct NowPlayingView: View {
-    @EnvironmentObject var state: AppState
+    @Environment(AppState.self) var state
     @Environment(\.dismiss) var dismiss
     @State private var isDragging = false
     @State private var sliderValue: Double = 0
@@ -79,7 +79,7 @@ struct NowPlayingView: View {
 
                         // Cover + 4 car buttons
                         CoverWithCarButtons(size: coverSize)
-                            .environmentObject(state)
+                            .environment(state)
 
                         // Track info
                         VStack(spacing: 4) {
@@ -236,7 +236,7 @@ struct NowPlayingView: View {
 // MARK: - Cover with 4 big car overlay buttons
 
 struct CoverWithCarButtons: View {
-    @EnvironmentObject var state: AppState
+    @Environment(AppState.self) var state
     let size: CGFloat
     private let haptic = UIImpactFeedbackGenerator(style: .medium)
 

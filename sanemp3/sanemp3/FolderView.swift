@@ -7,7 +7,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct FolderView: View {
-    @EnvironmentObject var state: AppState
+    @Environment(AppState.self) var state
     @State private var showFilePicker = false
     @State private var isSelecting = false
     @State private var selected = Set<UUID>()
@@ -100,7 +100,7 @@ struct FolderView: View {
             }
             .sheet(isPresented: $showAddToPlaylist) {
                 AddToPlaylistSheet(tracks: tracks.filter { selected.contains($0.id) })
-                    .environmentObject(state)
+                    .environment(state)
             }
         }
     }
@@ -193,7 +193,7 @@ struct FolderView: View {
 // MARK: - TrackRow
 
 struct TrackRow: View {
-    @EnvironmentObject var state: AppState
+    @Environment(AppState.self) var state
     let track: AudioTrack
     let index: Int
     let isSelecting: Bool

@@ -8,7 +8,7 @@ import SwiftUI
 // MARK: - Playlists list
 
 struct PlaylistsView: View {
-    @EnvironmentObject var state: AppState
+    @Environment(AppState.self) var state
     @State private var showCreate = false
     @State private var newName = ""
 
@@ -20,7 +20,7 @@ struct PlaylistsView: View {
                 } else {
                     List {
                         ForEach(state.playlists) { pl in
-                            NavigationLink(destination: PlaylistDetailView(playlistId: pl.id).environmentObject(state)) {
+                            NavigationLink(destination: PlaylistDetailView(playlistId: pl.id).environment(state)) {
                                 HStack(spacing: 14) {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 8).fill(LinearGradient(colors: [.indigo, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)).frame(width: 48, height: 48)
@@ -68,7 +68,7 @@ struct PlaylistsView: View {
 // MARK: - Playlist detail
 
 struct PlaylistDetailView: View {
-    @EnvironmentObject var state: AppState
+    @Environment(AppState.self) var state
     let playlistId: UUID
     @State private var isEditing = false
     @State private var showRename = false
@@ -103,7 +103,7 @@ struct PlaylistDetailView: View {
                                 TrackRow(track: track, index: idx, isSelecting: false, isSelected: false) {
                                     state.playQueue(pl.tracks, startingAt: idx)
                                 }
-                                .environmentObject(state)
+                                .environment(state)
                             }
                             .onDelete { state.removeTrack(at: $0, from: playlistId) }
                             .onMove { state.moveTracks(from: $0, to: $1, in: playlistId) }
@@ -144,7 +144,7 @@ struct PlaylistDetailView: View {
 // MARK: - Add to playlist sheet
 
 struct AddToPlaylistSheet: View {
-    @EnvironmentObject var state: AppState
+    @Environment(AppState.self) var state
     @Environment(\.dismiss) var dismiss
     let tracks: [AudioTrack]
     @State private var newName = ""
