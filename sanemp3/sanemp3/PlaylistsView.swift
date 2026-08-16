@@ -23,7 +23,9 @@ struct PlaylistsView: View {
                             NavigationLink(destination: PlaylistDetailView(playlistId: pl.id).environment(state)) {
                                 HStack(spacing: 14) {
                                     ZStack {
-                                        RoundedRectangle(cornerRadius: 8).fill(LinearGradient(colors: [.indigo, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)).frame(width: 48, height: 48)
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(AppTheme.brownOrangeGradient)
+                                            .frame(width: 48, height: 48)
                                         Image(systemName: "music.note.list").foregroundStyle(.white)
                                     }
                                     VStack(alignment: .leading, spacing: 3) {

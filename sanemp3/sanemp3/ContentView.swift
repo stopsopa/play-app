@@ -29,9 +29,11 @@ struct ContentView: View {
                     .padding(.bottom, 52)
             }
         }
+        .tint(AppTheme.orange)
         .sheet(isPresented: $showNowPlaying) {
             NowPlayingView()
                 .environment(state)
+                .tint(AppTheme.orange)
         }
         .onAppear { state.restorePlaybackState() }
     }

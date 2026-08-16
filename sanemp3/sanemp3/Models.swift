@@ -6,6 +6,32 @@
 import Foundation
 import AVFoundation
 import UIKit
+import SwiftUI
+
+// MARK: - App Theme (Brown & Orange Palette)
+
+struct AppTheme {
+    static let orange = Color(red: 0.96, green: 0.48, blue: 0.12)
+    static let warmBrown = Color(red: 0.46, green: 0.26, blue: 0.14)
+    static let darkBrown = Color(red: 0.28, green: 0.15, blue: 0.08)
+    static let softAmber = Color(red: 0.88, green: 0.60, blue: 0.28)
+    
+    static var brownOrangeGradient: LinearGradient {
+        LinearGradient(
+            colors: [warmBrown, orange],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    static var coverPlaceholderGradient: LinearGradient {
+        LinearGradient(
+            colors: [darkBrown, warmBrown, orange.opacity(0.85)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+}
 
 // MARK: - AudioTrack
 

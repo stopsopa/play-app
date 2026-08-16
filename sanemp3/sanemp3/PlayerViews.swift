@@ -20,8 +20,8 @@ struct MiniPlayer: View {
                         if let art = state.currentArtwork {
                             Image(uiImage: art).resizable().aspectRatio(contentMode: .fill)
                         } else {
-                            LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)
-                            Image(systemName: "music.note").foregroundStyle(.white.opacity(0.8))
+                            AppTheme.brownOrangeGradient
+                            Image(systemName: "music.note").foregroundStyle(.white.opacity(0.85))
                         }
                     }
                     .frame(width: 44, height: 44)
@@ -174,7 +174,7 @@ struct NowPlayingView: View {
                     }
                 }
             )
-            .tint(.accentColor)
+            .tint(AppTheme.orange)
             .onChange(of: state.currentTime) { v in
                 if !isDragging { sliderValue = v }
             }
@@ -211,12 +211,12 @@ struct NowPlayingView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(
                 state.isPlaying
-                    ? LinearGradient(colors: [Color.orange, Color.red.opacity(0.85)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    : LinearGradient(colors: [Color.accentColor, Color.blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    ? LinearGradient(colors: [Color.red.opacity(0.85), AppTheme.orange], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    : LinearGradient(colors: [AppTheme.orange, AppTheme.warmBrown], startPoint: .topLeading, endPoint: .bottomTrailing)
             )
             .foregroundStyle(.white)
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .shadow(color: (state.isPlaying ? Color.orange : Color.accentColor).opacity(0.35), radius: 10, y: 4)
+            .shadow(color: AppTheme.orange.opacity(0.35), radius: 10, y: 4)
         }
         .buttonStyle(.plain)
     }
@@ -229,7 +229,7 @@ struct NowPlayingView: View {
                 HStack(spacing: 12) {
                     if idx == state.currentIndex {
                         Image(systemName: state.isPlaying ? "speaker.wave.2.fill" : "speaker.fill")
-                            .foregroundStyle(.tint)
+                            .foregroundStyle(AppTheme.orange)
                             .frame(width: 24)
                     } else {
                         Text("\(idx + 1)")
@@ -240,7 +240,7 @@ struct NowPlayingView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(track.displayName)
                             .fontWeight(idx == state.currentIndex ? .bold : .regular)
-                            .foregroundStyle(idx == state.currentIndex ? Color.accentColor : .primary)
+                            .foregroundStyle(idx == state.currentIndex ? AppTheme.orange : Color.primary)
                             .lineLimit(1)
                         Text(track.displayArtist)
                             .font(.caption)
@@ -291,10 +291,10 @@ struct CoverWithCarButtons: View {
                             .aspectRatio(contentMode: .fill)
                     } else {
                         ZStack {
-                            LinearGradient(colors: [.blue.opacity(0.7), .purple.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            AppTheme.coverPlaceholderGradient
                             Image(systemName: "music.note")
                                 .font(.system(size: max(size * 0.35, 32), weight: .medium))
-                                .foregroundStyle(.white.opacity(0.7))
+                                .foregroundStyle(.white.opacity(0.75))
                         }
                     }
                 }

@@ -241,11 +241,11 @@ struct TrackRow: View {
         HStack(spacing: 12) {
             if isSelecting {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.title3).foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .font(.title3).foregroundStyle(isSelected ? AppTheme.orange : Color.secondary)
             } else {
                 if isCurrent {
                     Image(systemName: state.isPlaying ? "speaker.wave.2.fill" : "speaker.fill")
-                        .foregroundStyle(.tint).frame(width: 22)
+                        .foregroundStyle(AppTheme.orange).frame(width: 22)
                 } else {
                     Text("\(index + 1)").font(.caption).foregroundStyle(.secondary).frame(width: 22)
                 }
@@ -253,7 +253,7 @@ struct TrackRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(track.displayName)
                     .font(.body).fontWeight(isCurrent ? .bold : .medium)
-                    .foregroundStyle(isCurrent ? Color.accentColor : .primary).lineLimit(1)
+                    .foregroundStyle(isCurrent ? AppTheme.orange : .primary).lineLimit(1)
                 Text(track.displayArtist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
@@ -341,7 +341,7 @@ struct RegexSelectionSheet: View {
                         HStack {
                             Text("Matched: **\(matchedTracks.count)** of \(tracks.count) tracks")
                                 .font(.subheadline)
-                                .foregroundStyle(matchedTracks.isEmpty ? .secondary : Color.accentColor)
+                                .foregroundStyle(matchedTracks.isEmpty ? .secondary : AppTheme.orange)
                             Spacer()
                         }
                     }
@@ -369,7 +369,7 @@ struct RegexSelectionSheet: View {
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
                                         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 6))
-                                        .foregroundStyle(Color.accentColor)
+                                        .foregroundStyle(AppTheme.orange)
                                 }
                                 Text(ex.note)
                                     .font(.caption2)
@@ -384,7 +384,7 @@ struct RegexSelectionSheet: View {
                         ForEach(matchedTracks.prefix(8)) { track in
                             HStack {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(Color.accentColor)
+                                    .foregroundStyle(AppTheme.orange)
                                     .font(.caption)
                                 Text(track.displayName)
                                     .font(.caption)
