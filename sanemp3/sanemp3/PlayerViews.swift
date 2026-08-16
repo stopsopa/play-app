@@ -35,7 +35,7 @@ struct MiniPlayer: View {
                     Spacer()
 
                     // Skip +3s
-                    Button { state.skipForward() } label: {
+                    Button { state.flashForward() } label: {
                         Image(systemName: "goforward").font(.title3).frame(width: 36, height: 36)
                     }
                     // Play / Pause
@@ -69,42 +69,42 @@ struct NowPlayingView: View {
         NavigationStack {
             GeometryReader { geo in
                 let width = geo.size.width
-                // Full width box with small side padding
-                let coverSize = max(width - 24, 120)
+                // 95% of screen width for the entire 4-button square
+                let coverSize = max(width * 0.95, 120)
 
-                VStack(spacing: 12) {
+                VStack(spacing: 8) {
                     // Drag handle
                     Capsule()
                         .fill(Color.secondary.opacity(0.3))
-                        .frame(width: 40, height: 5)
-                        .padding(.top, 6)
+                        .frame(width: 36, height: 4)
+                        .padding(.top, 4)
 
-                    // Full-width Cover with 4 big car buttons
+                    // 95% width Cover with 4 big car buttons (-3s, +3s, Prev, Next)
                     CoverWithCarButtons(size: coverSize)
                         .environmentObject(state)
 
                     // Track info
-                    VStack(spacing: 3) {
+                    VStack(spacing: 2) {
                         Text(state.currentTrack?.displayName ?? "Not Playing")
-                            .font(.title3)
+                            .font(.headline)
                             .bold()
                             .multilineTextAlignment(.center)
                             .lineLimit(1)
                         Text(state.currentTrack?.displayArtist ?? "")
-                            .font(.subheadline)
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, width * 0.025)
 
-                    // Scrubber (progress bar)
+                    // Compact Scrubber (progress bar)
                     scrubber
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, width * 0.025)
 
-                    // Massive Full-Width Play / Pause Button
+                    // Massive Play / Pause Button (95% width)
                     bigPlayPauseButton
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, 12)
+                        .padding(.horizontal, width * 0.025)
+                        .padding(.bottom, 8)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -133,9 +133,6 @@ struct NowPlayingView: View {
                                             set: { UIApplication.shared.isIdleTimerDisabled = $0 })) {
                             Label("Prevent Screen Lock", systemImage: "sun.max.fill")
                         }
-                        Toggle(isOn: $state.carRemoteMode) {
-                            Label("Car Remote Mode", systemImage: "car.fill")
-                        }
                         Menu("Speed (\(String(format: "%.2gx", state.playbackRate)))") {
                             ForEach([Float(0.75), 1.0, 1.25, 1.5, 2.0], id: \.self) { rate in
                                 Button("\(String(format: "%.2g", rate))×") {
@@ -154,10 +151,10 @@ struct NowPlayingView: View {
         }
     }
 
-    // MARK: Scrubber
+    // MARK: Compact Scrubber
 
     var scrubber: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 1) {
             Slider(
                 value: Binding(get: { isDragging ? sliderValue : state.currentTime },
                                set: { sliderValue = $0 }),
@@ -174,19 +171,20 @@ struct NowPlayingView: View {
                 }
             )
             .tint(AppTheme.orange)
+            .frame(height: 18)
             .onChange(of: state.currentTime) { v in
                 if !isDragging { sliderValue = v }
             }
 
             HStack {
                 Text(fmt(isDragging ? sliderValue : state.currentTime))
-                    .font(.caption)
+                    .font(.caption2)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
                 Spacer()
                 let remaining = max(state.duration - (isDragging ? sliderValue : state.currentTime), 0)
                 Text("-" + fmt(remaining))
-                    .font(.caption)
+                    .font(.caption2)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
@@ -200,22 +198,23 @@ struct NowPlayingView: View {
             haptic.impactOccurred()
             state.togglePlay()
         } label: {
-            HStack(spacing: 16) {
+            HStack(spacing: 14) {
                 Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 42, weight: .black))
+                    .font(.system(size: 34, weight: .black))
 
                 Text(state.isPlaying ? "PAUSE" : "PLAY")
-                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    .font(.system(size: 26, weight: .heavy, design: .rounded))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(minHeight: 52, maxHeight: 72)
             .background(
                 state.isPlaying
                     ? LinearGradient(colors: [Color.red.opacity(0.85), AppTheme.orange], startPoint: .topLeading, endPoint: .bottomTrailing)
                     : LinearGradient(colors: [AppTheme.orange, AppTheme.warmBrown], startPoint: .topLeading, endPoint: .bottomTrailing)
             )
             .foregroundStyle(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .shadow(color: AppTheme.orange.opacity(0.35), radius: 10, y: 4)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(color: AppTheme.orange.opacity(0.3), radius: 8, y: 3)
         }
         .buttonStyle(.plain)
     }
@@ -303,18 +302,30 @@ struct CoverWithCarButtons: View {
             // 4 large tap zones covering the full square
             VStack(spacing: 3) {
                 HStack(spacing: 3) {
-                    CarButton(icon: "gobackward", label: "-3s") {
+                    // Top-Left: -3s (turns brighter when triggered via remote or tap)
+                    CarButton(
+                        icon: "gobackward",
+                        label: "-3s",
+                        isFlashing: state.isRewindActive
+                    ) {
                         haptic.impactOccurred()
-                        state.skipBackward()
+                        state.flashBackward()
                     }
-                    CarButton(icon: "goforward", label: "+3s") {
+
+                    // Top-Right: +3s (turns brighter when triggered via remote or tap)
+                    CarButton(
+                        icon: "goforward",
+                        label: "+3s",
+                        isFlashing: state.isForwardActive
+                    ) {
                         haptic.impactOccurred()
-                        state.skipForward()
+                        state.flashForward()
                     }
                 }
                 .frame(maxHeight: .infinity)
 
                 HStack(spacing: 3) {
+                    // Bottom-Left: Prev / Restart
                     CarButton(
                         icon: state.currentTime > 5 ? "arrow.counterclockwise" : "backward.fill",
                         label: state.currentTime > 5 ? "Restart" : "Prev"
@@ -322,6 +333,8 @@ struct CoverWithCarButtons: View {
                         haptic.impactOccurred()
                         state.previousTrack()
                     }
+
+                    // Bottom-Right: Next
                     CarButton(icon: "forward.fill", label: "Next") {
                         haptic.impactOccurred()
                         state.nextTrack()
@@ -335,33 +348,47 @@ struct CoverWithCarButtons: View {
     }
 }
 
-// MARK: - Individual car button
+// MARK: - Individual car button (with square brightening when active)
 
 struct CarButton: View {
     let icon: String
     let label: String
+    var isFlashing: Bool = false
     let action: () -> Void
     @State private var pressed = false
 
     var body: some View {
         Button(action: action) {
             ZStack {
+                // Background dark tint by default
                 Color.black.opacity(pressed ? 0.7 : 0.48)
                     .background(.ultraThinMaterial.opacity(0.25))
 
-                VStack(spacing: 6) {
+                // Bright highlight layer when flashing / active
+                if isFlashing {
+                    LinearGradient(
+                        colors: [AppTheme.orange.opacity(0.85), Color.yellow.opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .transition(.opacity)
+                }
+
+                VStack(spacing: 4) {
                     Image(systemName: icon)
-                        .font(.system(size: 38, weight: .bold))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(isFlashing ? .white : .white)
 
                     Text(label)
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.95))
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(isFlashing ? .white : .white.opacity(0.95))
                 }
-                .shadow(color: .black.opacity(0.8), radius: 4, x: 0, y: 1)
+                .scaleEffect(isFlashing ? 1.1 : 1.0)
+                .shadow(color: isFlashing ? Color.orange : Color.black.opacity(0.8), radius: isFlashing ? 8 : 4, x: 0, y: 1)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .contentShape(Rectangle())
+            .animation(.easeInOut(duration: 0.2), value: isFlashing)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(

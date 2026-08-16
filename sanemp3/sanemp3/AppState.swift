@@ -38,9 +38,12 @@ final class AppState: ObservableObject {
     @Published var repeatMode: RepeatMode = .all
     @Published var isShuffle = false
     @Published var playbackRate: Float = 1.0
-    @Published var carRemoteMode = false {
-        didSet { UserDefaults.standard.set(carRemoteMode, forKey: "carRemoteMode"); setupRemoteCommands() }
-    }
+
+    // MARK: - Visual Flash Indicators (Top Squares turn brighter)
+    @Published var isRewindActive = false
+    @Published var isForwardActive = false
+    private var rewindResetTask: Task<Void, Never>?
+    private var forwardResetTask: Task<Void, Never>?
 
     private var player: AVPlayer?
     private var timeObserverToken: Any?
@@ -59,7 +62,6 @@ final class AppState: ObservableObject {
     private var foldersURL: URL { appSupport.appendingPathComponent("folders.json") }
 
     init() {
-        carRemoteMode = UserDefaults.standard.bool(forKey: "carRemoteMode")
         if let s = UserDefaults.standard.string(forKey: "folderSort"), let o = TrackSortOption(rawValue: s) {
             folderSortOption = o
         }
@@ -277,6 +279,28 @@ final class AppState: ObservableObject {
         }
     }
 
+    // MARK: - Rewind / Forward (3 seconds jump with visual square flashing)
+
+    func flashBackward() {
+        isRewindActive = true
+        skipBackward(3)
+        rewindResetTask?.cancel()
+        rewindResetTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            if !Task.isCancelled { self.isRewindActive = false }
+        }
+    }
+
+    func flashForward() {
+        isForwardActive = true
+        skipForward(3)
+        forwardResetTask?.cancel()
+        forwardResetTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            if !Task.isCancelled { self.isForwardActive = false }
+        }
+    }
+
     func skipForward(_ s: TimeInterval = 3) { seek(to: currentTime + s) }
     func skipBackward(_ s: TimeInterval = 3) { seek(to: currentTime - s) }
 
@@ -349,35 +373,64 @@ final class AppState: ObservableObject {
         cc.skipForwardCommand.removeTarget(nil); cc.skipBackwardCommand.removeTarget(nil)
         cc.changePlaybackPositionCommand.removeTarget(nil)
 
+        cc.playCommand.isEnabled = true
         cc.playCommand.addTarget { [weak self] _ in self?.play(); return .success }
+
+        cc.pauseCommand.isEnabled = true
         cc.pauseCommand.addTarget { [weak self] _ in self?.pause(); return .success }
+
+        cc.togglePlayPauseCommand.isEnabled = true
         cc.togglePlayPauseCommand.addTarget { [weak self] _ in self?.togglePlay(); return .success }
+
+        cc.stopCommand.isEnabled = true
         cc.stopCommand.addTarget { [weak self] _ in self?.stop(); return .success }
 
-        cc.skipForwardCommand.preferredIntervals = [3]; cc.skipBackwardCommand.preferredIntervals = [3]
-        cc.skipForwardCommand.addTarget { [weak self] _ in self?.skipForward(); return .success }
-        cc.skipBackwardCommand.addTarget { [weak self] _ in self?.skipBackward(); return .success }
+        // Skip buttons: rewind / forward 3s
+        cc.skipForwardCommand.isEnabled = true
+        cc.skipForwardCommand.preferredIntervals = [3]
+        cc.skipForwardCommand.addTarget { [weak self] _ in
+            self?.flashForward()
+            return .success
+        }
 
-        // Car remote: quick press = 3s skip, long press (seekForward/Backward) = song change
+        cc.skipBackwardCommand.isEnabled = true
+        cc.skipBackwardCommand.preferredIntervals = [3]
+        cc.skipBackwardCommand.addTarget { [weak self] _ in
+            self?.flashBackward()
+            return .success
+        }
+
+        // Bluetooth Remote Forward buttons (Next track / Seek forward): all jump +3s
+        cc.nextTrackCommand.isEnabled = true
         cc.nextTrackCommand.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            if self.carRemoteMode { self.skipForward() } else { self.nextTrack() }; return .success
+            self?.flashForward()
+            return .success
         }
+
+        cc.seekForwardCommand.isEnabled = true
+        cc.seekForwardCommand.addTarget { [weak self] _ in
+            self?.flashForward()
+            return .success
+        }
+
+        // Bluetooth Remote Backward buttons (Prev track / Seek backward): all jump -3s
+        cc.previousTrackCommand.isEnabled = true
         cc.previousTrackCommand.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            if self.carRemoteMode { self.skipBackward() } else { self.previousTrack() }; return .success
+            self?.flashBackward()
+            return .success
         }
-        cc.seekForwardCommand.addTarget { [weak self] e in
-            guard let self, let ev = e as? MPSeekCommandEvent, ev.type == .beginSeeking else { return .commandFailed }
-            if self.carRemoteMode { self.nextTrack() } else { self.skipForward() }; return .success
+
+        cc.seekBackwardCommand.isEnabled = true
+        cc.seekBackwardCommand.addTarget { [weak self] _ in
+            self?.flashBackward()
+            return .success
         }
-        cc.seekBackwardCommand.addTarget { [weak self] e in
-            guard let self, let ev = e as? MPSeekCommandEvent, ev.type == .beginSeeking else { return .commandFailed }
-            if self.carRemoteMode { self.previousTrack() } else { self.skipBackward() }; return .success
-        }
+
+        cc.changePlaybackPositionCommand.isEnabled = true
         cc.changePlaybackPositionCommand.addTarget { [weak self] e in
             guard let self, let ev = e as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
-            self.seek(to: ev.positionTime); return .success
+            self.seek(to: ev.positionTime)
+            return .success
         }
     }
 
