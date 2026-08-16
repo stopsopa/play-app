@@ -19,6 +19,9 @@ struct AudioTrack: Identifiable, Codable, Hashable, Equatable {
     var creationDate: Date
     var bookmarkData: Data?
 
+    var fileName: String {
+        url.lastPathComponent
+    }
     var displayName: String {
         title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? url.deletingPathExtension().lastPathComponent

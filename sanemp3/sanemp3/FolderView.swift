@@ -12,6 +12,7 @@ struct FolderView: View {
     @State private var isSelecting = false
     @State private var selected = Set<UUID>()
     @State private var showAddToPlaylist = false
+    @State private var showRegexSheet = false
     @State private var search = ""
 
     var tracks: [AudioTrack] {
@@ -41,6 +42,12 @@ struct FolderView: View {
                         if !selected.isEmpty {
                             Button { showAddToPlaylist = true } label: {
                                 Label("Add \(selected.count) to Playlist…", systemImage: "text.badge.plus")
+                            }
+                            Divider()
+                        }
+                        if !tracks.isEmpty {
+                            Button { showRegexSheet = true } label: {
+                                Label("Select by Regex…", systemImage: "line.3.horizontal.decrease.circle")
                             }
                             Divider()
                         }
@@ -102,6 +109,18 @@ struct FolderView: View {
                 AddToPlaylistSheet(tracks: tracks.filter { selected.contains($0.id) })
                     .environment(state)
             }
+            .sheet(isPresented: $showRegexSheet) {
+                RegexSelectionSheet(
+                    tracks: tracks,
+                    currentSelection: selected,
+                    onApply: { matchedIds in
+                        withAnimation {
+                            isSelecting = true
+                            selected = matchedIds
+                        }
+                    }
+                )
+            }
         }
     }
 
@@ -143,14 +162,30 @@ struct FolderView: View {
     var trackList: some View {
         VStack(spacing: 0) {
             // Header bar
-            HStack {
+            HStack(spacing: 12) {
                 Text("\(tracks.count) tracks").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if !isSelecting {
+                    Button {
+                        showRegexSheet = true
+                    } label: {
+                        Label("Select Regex", systemImage: "line.3.horizontal.decrease.circle")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+
                     Button { state.playQueue(tracks) } label: {
                         Label("Play All", systemImage: "play.fill").font(.caption).fontWeight(.semibold)
-                    }.buttonStyle(.bordered).buttonBorderShape(.capsule)
+                    }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
                 } else {
+                    Button {
+                        showRegexSheet = true
+                    } label: {
+                        Label("By Regex…", systemImage: "line.3.horizontal.decrease.circle")
+                            .font(.caption)
+                    }
+
                     Button(selected.count == tracks.count ? "Deselect All" : "Select All") {
                         selected = selected.count == tracks.count ? [] : Set(tracks.map(\.id))
                     }.font(.caption).fontWeight(.medium)
@@ -227,3 +262,174 @@ struct TrackRow: View {
         .contentShape(Rectangle()).onTapGesture { onTap() }
     }
 }
+
+// MARK: - RegexSelectionSheet
+
+struct RegexSelectionSheet: View {
+    let tracks: [AudioTrack]
+    let currentSelection: Set<UUID>
+    let onApply: (Set<UUID>) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @AppStorage("lastSelectionRegex") private var savedRegex: String = ""
+    @State private var pattern: String = ""
+    @State private var isCaseSensitive: Bool = false
+    @State private var matchFilenamesOnly: Bool = false
+
+    private let examples: [(title: String, pattern: String, note: String)] = [
+        ("Live", "(?i)live", "Matches 'Live', 'live', etc."),
+        ("Remix", "(?i)remix", "Matches remix versions"),
+        ("Track Numbers", "^\\d+", "Starts with track numbers (01, 1, 2)"),
+        ("Acoustic", "(?i)acoustic", "Matches acoustic tracks"),
+        ("CD / Disc", "(?i)(cd|disc)\\s*\\d", "Matches CD1, Disc 2, etc."),
+        ("Year in Name", "\\b(19|20)\\d{2}\\b", "Matches 4-digit years (e.g. 1999, 2024)")
+    ]
+
+    private var compiledRegex: NSRegularExpression? {
+        guard !pattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        var options: NSRegularExpression.Options = []
+        if !isCaseSensitive {
+            options.insert(.caseInsensitive)
+        }
+        return try? NSRegularExpression(pattern: pattern, options: options)
+    }
+
+    private var regexError: String? {
+        let trimmed = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        do {
+            _ = try NSRegularExpression(pattern: trimmed, options: isCaseSensitive ? [] : [.caseInsensitive])
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
+    private var matchedTracks: [AudioTrack] {
+        guard let regex = compiledRegex else { return [] }
+        return tracks.filter { track in
+            let textToMatch = matchFilenamesOnly ? track.fileName : "\(track.displayName) \(track.fileName)"
+            let range = NSRange(location: 0, length: (textToMatch as NSString).length)
+            return regex.firstMatch(in: textToMatch, options: [], range: range) != nil
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    HStack {
+                        Image(systemName: "regularshape.and.cursor")
+                            .foregroundStyle(.secondary)
+                        TextField("Regex pattern (e.g. (?i)live|remix)", text: $pattern)
+                            .textInputAutocapitalization(.never)
+                            .disableAutocorrection(true)
+                            .font(.system(.body, design: .monospaced))
+                        if !pattern.isEmpty {
+                            Button { pattern = "" } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    if let error = regexError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    } else if !pattern.isEmpty {
+                        HStack {
+                            Text("Matched: **\(matchedTracks.count)** of \(tracks.count) tracks")
+                                .font(.subheadline)
+                                .foregroundStyle(matchedTracks.isEmpty ? .secondary : Color.accentColor)
+                            Spacer()
+                        }
+                    }
+                } header: {
+                    Text("Regular Expression")
+                } footer: {
+                    Text("Matches song titles and file names in this folder.")
+                }
+
+                Section("Examples (Tap to Use)") {
+                    ForEach(examples, id: \.pattern) { ex in
+                        Button {
+                            pattern = ex.pattern
+                        } label: {
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack {
+                                    Text(ex.title)
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Text(ex.pattern)
+                                        .font(.caption)
+                                        .fontDesign(.monospaced)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 6))
+                                        .foregroundStyle(Color.accentColor)
+                                }
+                                Text(ex.note)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+
+                if !matchedTracks.isEmpty {
+                    Section("Preview Matches (\(matchedTracks.count))") {
+                        ForEach(matchedTracks.prefix(8)) { track in
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(Color.accentColor)
+                                    .font(.caption)
+                                Text(track.displayName)
+                                    .font(.caption)
+                                    .lineLimit(1)
+                            }
+                        }
+                        if matchedTracks.count > 8 {
+                            Text("... and \(matchedTracks.count - 8) more")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Select by Regex")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Select (\(matchedTracks.count))") {
+                        applyMatches(unionWithExisting: false)
+                    }
+                    .fontWeight(.bold)
+                    .disabled(matchedTracks.isEmpty)
+                }
+            }
+            .onAppear {
+                if pattern.isEmpty {
+                    pattern = savedRegex
+                }
+            }
+        }
+    }
+
+    private func applyMatches(unionWithExisting: Bool) {
+        let matchedIds = Set(matchedTracks.map(\.id))
+        savedRegex = pattern
+        if unionWithExisting {
+            onApply(currentSelection.union(matchedIds))
+        } else {
+            onApply(matchedIds)
+        }
+        dismiss()
+    }
+}
+
