@@ -312,7 +312,8 @@ struct CoverWithCarButtons: View {
                     CarButton(
                         icon: "gobackward",
                         label: "-3s",
-                        isFlashing: state.isRewindActive
+                        isFlashing: state.isRewindActive,
+                        iconColor: .yellow
                     ) {
                         haptic.impactOccurred()
                         state.flashBackward()
@@ -384,6 +385,7 @@ struct CarButton: View {
     let label: String
     var subtitle: String? = nil
     var isFlashing: Bool = false
+    var iconColor: Color = .white
     let action: () -> Void
     @State private var pressed = false
 
@@ -407,7 +409,7 @@ struct CarButton: View {
                 VStack(spacing: 3) {
                     Image(systemName: icon)
                         .font(.system(size: 32, weight: .bold))
-                        .foregroundStyle(isFlashing ? .white : .white)
+                        .foregroundStyle(isFlashing ? .white : iconColor)
 
                     Text(label)
                         .font(.system(size: 15, weight: .bold, design: .rounded))
