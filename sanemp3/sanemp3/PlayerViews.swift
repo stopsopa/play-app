@@ -278,6 +278,12 @@ struct CoverWithCarButtons: View {
     private let haptic = UIImpactFeedbackGenerator(style: .medium)
 
     var body: some View {
+        let spacing: CGFloat = 3
+        let leftWidth = (size - spacing) * 3.0 / 5.0
+        let rightWidth = (size - spacing) * 2.0 / 5.0
+        let topHeight = (size - spacing) * 3.0 / 5.0
+        let bottomHeight = (size - spacing) * 2.0 / 5.0
+
         ZStack {
             // Artwork or placeholder
             RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -299,9 +305,9 @@ struct CoverWithCarButtons: View {
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .shadow(color: .black.opacity(0.18), radius: 12, x: 0, y: 6)
 
-            // 4 large tap zones covering the full square
-            VStack(spacing: 3) {
-                HStack(spacing: 3) {
+            // 4 large tap zones covering the full square (3:2 ratio favoring -3s button)
+            VStack(spacing: spacing) {
+                HStack(spacing: spacing) {
                     // Top-Left: -3s (turns brighter when triggered via remote or tap)
                     CarButton(
                         icon: "gobackward",
@@ -311,6 +317,7 @@ struct CoverWithCarButtons: View {
                         haptic.impactOccurred()
                         state.flashBackward()
                     }
+                    .frame(width: leftWidth, height: topHeight)
 
                     // Top-Right: +3s (turns brighter when triggered via remote or tap)
                     CarButton(
@@ -321,10 +328,10 @@ struct CoverWithCarButtons: View {
                         haptic.impactOccurred()
                         state.flashForward()
                     }
+                    .frame(width: rightWidth, height: topHeight)
                 }
-                .frame(maxHeight: .infinity)
 
-                HStack(spacing: 3) {
+                HStack(spacing: spacing) {
                     // Bottom-Left: Prev Track or Restart Song
                     CarButton(
                         icon: state.currentTime > 5 ? "arrow.counterclockwise" : "backward.fill",
@@ -334,6 +341,7 @@ struct CoverWithCarButtons: View {
                         haptic.impactOccurred()
                         state.previousTrack()
                     }
+                    .frame(width: leftWidth, height: bottomHeight)
 
                     // Bottom-Right: Next Track or Restore Saved Spot
                     if let spot = state.savedResetPosition {
@@ -345,6 +353,7 @@ struct CoverWithCarButtons: View {
                             haptic.impactOccurred()
                             state.nextTrack()
                         }
+                        .frame(width: rightWidth, height: bottomHeight)
                     } else {
                         CarButton(
                             icon: "forward.fill",
@@ -353,9 +362,9 @@ struct CoverWithCarButtons: View {
                             haptic.impactOccurred()
                             state.nextTrack()
                         }
+                        .frame(width: rightWidth, height: bottomHeight)
                     }
                 }
-                .frame(maxHeight: .infinity)
             }
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
