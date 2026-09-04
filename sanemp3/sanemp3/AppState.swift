@@ -39,6 +39,9 @@ final class AppState: ObservableObject {
     @Published var isShuffle = false
     @Published var playbackRate: Float = 1.0
 
+    // MARK: - Settings / Multi-Tap Configuration
+    @Published var multiTapInterval: Double = 1.6
+
     // MARK: - Visual Flash Indicators (Top Squares turn brighter)
     @Published var isRewindActive = false
     @Published var isForwardActive = false
@@ -69,6 +72,12 @@ final class AppState: ObservableObject {
         }
         if let s = UserDefaults.standard.string(forKey: "folderSort"), let o = TrackSortOption(rawValue: s) {
             folderSortOption = o
+        }
+        let savedInterval = UserDefaults.standard.double(forKey: "multiTapInterval")
+        if savedInterval >= 0.2 {
+            multiTapInterval = (savedInterval * 10).rounded() / 10
+        } else {
+            multiTapInterval = 1.6
         }
         loadFolders(); loadPlaylists(); restoreLastFolder()
         setupNotifications(); setupRemoteCommands()
@@ -399,7 +408,41 @@ final class AppState: ObservableObject {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 
-    // MARK: - Bluetooth Remote Multi-Tap Handlers (Single press vs Fast double-press)
+    // MARK: - Multi-Tap Interval Configuration & Position Memory Helpers
+
+    func increaseMultiTapInterval() {
+        let nextVal = ((multiTapInterval + 0.2) * 10).rounded() / 10
+        multiTapInterval = nextVal
+        UserDefaults.standard.set(multiTapInterval, forKey: "multiTapInterval")
+    }
+
+    func decreaseMultiTapInterval() {
+        let nextVal = max(0.2, ((multiTapInterval - 0.2) * 10).rounded() / 10)
+        multiTapInterval = nextVal
+        UserDefaults.standard.set(multiTapInterval, forKey: "multiTapInterval")
+    }
+
+    func resetMultiTapInterval() {
+        multiTapInterval = 1.6
+        UserDefaults.standard.set(multiTapInterval, forKey: "multiTapInterval")
+    }
+
+    func setMultiTapInterval(_ val: Double) {
+        let clamped = max(0.2, (val * 10).rounded() / 10)
+        multiTapInterval = clamped
+        UserDefaults.standard.set(clamped, forKey: "multiTapInterval")
+    }
+
+    var savedTrackPositionsCount: Int {
+        savedTrackPositions.count
+    }
+
+    func clearSavedTrackPositions() {
+        savedTrackPositions.removeAll()
+        UserDefaults.standard.removeObject(forKey: "savedTrackPositions")
+    }
+
+    // MARK: - Bluetooth Remote Multi-Tap Handlers (Single press vs Multi-press)
 
     private var forwardClickCount = 0
     private var forwardTapTask: Task<Void, Never>?
@@ -408,12 +451,17 @@ final class AppState: ObservableObject {
     private var backwardTapTask: Task<Void, Never>?
 
     func handleRemoteForward() {
+        backwardTapTask?.cancel()
+        backwardClickCount = 0
+
         forwardClickCount += 1
-        if forwardClickCount == 1 {
+        let count = forwardClickCount
+
+        if count == 1 {
             forwardTapTask?.cancel()
             forwardTapTask = Task { @MainActor in
-                // Wait 380ms to see if a 2nd press arrives
-                try? await Task.sleep(nanoseconds: 380_000_000)
+                let ns = UInt64(self.multiTapInterval * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: ns)
                 if !Task.isCancelled {
                     if self.forwardClickCount == 1 {
                         // Single press: bottom-right button action (Next Track or Restore)
@@ -422,21 +470,32 @@ final class AppState: ObservableObject {
                     self.forwardClickCount = 0
                 }
             }
-        } else if forwardClickCount >= 2 {
-            // Double press fast: top-right button action (+3s forward)
+        } else {
+            // 2nd press within interval: skip 3s; 3+ press: +3s for each extra press
             forwardTapTask?.cancel()
-            forwardClickCount = 0
             flashForward()
+            forwardTapTask = Task { @MainActor in
+                let ns = UInt64(self.multiTapInterval * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: ns)
+                if !Task.isCancelled {
+                    self.forwardClickCount = 0
+                }
+            }
         }
     }
 
     func handleRemoteBackward() {
+        forwardTapTask?.cancel()
+        forwardClickCount = 0
+
         backwardClickCount += 1
-        if backwardClickCount == 1 {
+        let count = backwardClickCount
+
+        if count == 1 {
             backwardTapTask?.cancel()
             backwardTapTask = Task { @MainActor in
-                // Wait 380ms to see if a 2nd press arrives
-                try? await Task.sleep(nanoseconds: 380_000_000)
+                let ns = UInt64(self.multiTapInterval * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: ns)
                 if !Task.isCancelled {
                     if self.backwardClickCount == 1 {
                         // Single press: bottom-left button action (Restart or Prev Track)
@@ -445,11 +504,17 @@ final class AppState: ObservableObject {
                     self.backwardClickCount = 0
                 }
             }
-        } else if backwardClickCount >= 2 {
-            // Double press fast: top-left button action (-3s rewind)
+        } else {
+            // 2nd press within interval: skip -3s; 3+ press: -3s for each extra press
             backwardTapTask?.cancel()
-            backwardClickCount = 0
             flashBackward()
+            backwardTapTask = Task { @MainActor in
+                let ns = UInt64(self.multiTapInterval * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: ns)
+                if !Task.isCancelled {
+                    self.backwardClickCount = 0
+                }
+            }
         }
     }
 

@@ -63,6 +63,7 @@ struct NowPlayingView: View {
     @State private var isDragging = false
     @State private var sliderValue: Double = 0
     @State private var showQueue = false
+    @State private var showSettings = false
     private let haptic = UIImpactFeedbackGenerator(style: .medium)
 
     var body: some View {
@@ -141,6 +142,12 @@ struct NowPlayingView: View {
                                 }
                             }
                         }
+                        Divider()
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Label("Settings…", systemImage: "gearshape")
+                        }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                             .font(.system(size: 18))
@@ -148,6 +155,10 @@ struct NowPlayingView: View {
                 }
             }
             .sheet(isPresented: $showQueue) { queueSheet }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
+                    .environmentObject(state)
+            }
         }
     }
 
