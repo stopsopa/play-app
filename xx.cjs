@@ -54,20 +54,42 @@ EEE
       source: false,
       confirm: false,
     },
-    [`date`]: {
+    [`provision.check`]: {
       command: `
 cat <<EEE
 
-/bin/bash bash/swap-files-v2.sh package.json package.dev.json -- yarn   
+/bin/bash check.provision.sh
 
 EEE
 
 echo -e "\n      Press enter to continue\n"
 read
 
-/bin/bash bash/swap-files-v2.sh package.json package.dev.json -- yarn   
+/bin/bash check.provision.sh
 `,
-      description: `swap and yarn`,
+      description: `Check provisioning profile expiration`,
+      confirm: false,
+    },
+    [`provision.new`]: {
+      command: `
+cat <<EEE
+
+/bin/bash refresh-provisioning-profile.sh
+
+The trick is to turn off the xcode IDE
+and then remove provisioning file which is usually somewhere
+~ szdz √ ls -la ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/94759b3d-9252-4052-bdc1-9567072b22b3.mobileprovision
+-rw-r--r--  1 szdz  staff  12463  4 Sep 01:03 /Users/szdz/Library/Developer/Xcode/UserData/Provisioning Profiles/94759b3d-9252-4052-bdc1-9567072b22b3.mobileprovision
+~ szdz √
+
+EEE
+
+echo -e "\n      Press enter to continue\n"
+read
+
+/bin/bash refresh-provisioning-profile.sh 
+`,
+      description: `Refresh the Xcode development provisioning profile.`,
       confirm: false,
     },
 
