@@ -56,6 +56,11 @@ if [[ ${DIFF} -lt 0 ]]; then
 ⏱️  Time since expiration:
    -${DAYS} days ${HOURS} hours
 
+   WARNING: see also provision.gif to see where to inspect the provisioning file
+   WARNING: see also provision.gif to see where to inspect the provisioning file
+   WARNING: see also provision.gif to see where to inspect the provisioning file
+   WARNING: see also provision.gif to see where to inspect the provisioning file
+
 EEE
 else
     cat <<EEE
@@ -67,6 +72,11 @@ else
 ⏳ Time remaining:
 
    ${DAYS} days ${HOURS} hours
+
+   WARNING: see also provision.gif to see where to inspect the provisioning file
+   WARNING: see also provision.gif to see where to inspect the provisioning file
+   WARNING: see also provision.gif to see where to inspect the provisioning file
+   WARNING: see also provision.gif to see where to inspect the provisioning file
    
 EEE
 fi
