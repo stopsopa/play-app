@@ -82,6 +82,8 @@ and then remove provisioning file which is usually somewhere
 -rw-r--r--  1 szdz  staff  12463  4 Sep 01:03 /Users/szdz/Library/Developer/Xcode/UserData/Provisioning Profiles/94759b3d-9252-4052-bdc1-9567072b22b3.mobileprovision
 ~ szdz √
 
+WARNING: You just do it once on the mac and then upload to how many phones you need
+
 EEE
 
 echo -e "\n      Press enter to continue\n"
