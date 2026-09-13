@@ -21,7 +21,7 @@ struct sanemp3App: App {
                     // Configure audio session for background playback
                     try? AVAudioSession.sharedInstance().setCategory(
                         .playback, mode: .default,
-                        options: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
+                        options: []
                     )
                     try? AVAudioSession.sharedInstance().setActive(true)
                 }

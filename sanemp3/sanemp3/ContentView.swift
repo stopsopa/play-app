@@ -35,6 +35,11 @@ struct ContentView: View {
                 .environmentObject(state)
                 .tint(AppTheme.orange)
         }
+        .overlay(alignment: .topLeading) {
+            #if DEBUG
+            ProvisioningIndicatorView()
+            #endif
+        }
         .onAppear { state.restorePlaybackState() }
     }
 }

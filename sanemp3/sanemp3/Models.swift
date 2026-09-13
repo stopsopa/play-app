@@ -7,6 +7,7 @@ import Foundation
 import AVFoundation
 import UIKit
 import SwiftUI
+import Combine
 
 // MARK: - App Theme (Brown & Orange Palette)
 
@@ -179,5 +180,301 @@ enum RepeatMode: String, CaseIterable, Identifiable, Codable {
     var id: String { rawValue }
     var icon: String {
         switch self { case .off: return "repeat"; case .all: return "repeat"; case .one: return "repeat.1" }
+    }
+}
+
+// MARK: - Provisioning Profile Expiration Service & View (Debug/Development)
+
+/**
+ * Service responsible for locating and decoding `embedded.mobileprovision` bundled with the application,
+ * and extracting provisioning profile details such as the expiration date.
+ */
+enum ProvisioningStatus: Equatable {
+    case unknown
+    case valid(expirationDate: Date)
+    case expired(expirationDate: Date)
+}
+
+@MainActor
+final class ProvisioningProfileService: ObservableObject {
+    static let shared = ProvisioningProfileService()
+
+    @Published private(set) var status: ProvisioningStatus = .unknown
+    @Published private(set) var expirationDate: Date?
+    @Published private(set) var compactCountdown: String = "???"
+    @Published private(set) var detailedRemaining: String = "Unknown"
+
+    private var hasLoaded = false
+    private var timer: Timer?
+
+    private init() {}
+
+    deinit {
+        timer?.invalidate()
+    }
+
+    /**
+     * Starts periodic updates and loads profile if not already loaded.
+     */
+    func startMonitoring() {
+        guard !hasLoaded else { return }
+        hasLoaded = true
+        loadProfile()
+        if timer == nil {
+            timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
+                Task { @MainActor in
+                    ProvisioningProfileService.shared.updateCountdown()
+                }
+            }
+        }
+    }
+
+    /**
+     * Reads `embedded.mobileprovision` from Bundle.main and parses the embedded XML plist asynchronously
+     * so that app launch and UI interactions are never blocked.
+     */
+    func loadProfile() {
+        Task.detached(priority: .utility) {
+            guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+                  let data = try? Data(contentsOf: url),
+                  let date = self.extractExpirationDate(from: data) else {
+                await MainActor.run {
+                    self.status = .unknown
+                    self.expirationDate = nil
+                    self.compactCountdown = "Unknown"
+                    self.detailedRemaining = "embedded.mobileprovision not found or unreadable"
+                }
+                return
+            }
+
+            await MainActor.run {
+                self.expirationDate = date
+                self.updateCountdown()
+            }
+        }
+    }
+
+    /**
+     * Extracts ExpirationDate from raw mobileprovision bytes.
+     * Mobileprovision wraps an XML plist inside CMS / PKCS#7 format.
+     * We locate `<plist` and `</plist>` and deserialize via PropertyListSerialization.
+     */
+    nonisolated private func extractExpirationDate(from data: Data) -> Date? {
+        guard let startRange = data.range(of: Data("<plist".utf8)),
+              let endRange = data.range(of: Data("</plist>".utf8), options: .backwards) else {
+            return nil
+        }
+        guard startRange.lowerBound < endRange.upperBound else {
+            return nil
+        }
+
+        let plistData = data.subdata(in: startRange.lowerBound..<endRange.upperBound)
+
+        guard let plist = try? PropertyListSerialization.propertyList(
+            from: plistData,
+            options: [],
+            format: nil
+        ) as? [String: Any] else {
+            return nil
+        }
+
+        return plist["ExpirationDate"] as? Date
+    }
+
+    /**
+     * Updates compact format (e.g. "6d 14h", "5h 22m", "Expired") and detailed string.
+     */
+    func updateCountdown() {
+        guard let expirationDate else {
+            status = .unknown
+            compactCountdown = "Unknown"
+            detailedRemaining = "Profile: Not Available"
+            return
+        }
+
+        let now = Date()
+        let interval = expirationDate.timeIntervalSince(now)
+
+        if interval <= 0 {
+            status = .expired(expirationDate: expirationDate)
+            compactCountdown = "Expired"
+            let past = abs(interval)
+            let days = Int(past) / 86400
+            let hours = (Int(past) % 86400) / 3600
+            detailedRemaining = "Expired \(days)d \(hours)h ago"
+        } else {
+            status = .valid(expirationDate: expirationDate)
+            let totalSeconds = Int(interval)
+            let days = totalSeconds / 86400
+            let hours = (totalSeconds % 86400) / 3600
+            let minutes = (totalSeconds % 3600) / 60
+
+            if days > 0 {
+                compactCountdown = "\(days)d \(hours)h"
+            } else if hours > 0 {
+                compactCountdown = "\(hours)h \(minutes)m"
+            } else {
+                let seconds = totalSeconds % 60
+                compactCountdown = "\(minutes)m \(seconds)s"
+            }
+
+            detailedRemaining = "\(days)d \(hours)h \(minutes)m remaining"
+        }
+    }
+}
+
+/**
+ * Draggable floating overlay indicator showing provisioning expiration time.
+ * Tap opens an alert / sheet with exact date and remaining time details.
+ */
+struct ProvisioningIndicatorView: View {
+    @StateObject private var service = ProvisioningProfileService.shared
+    @AppStorage("provisioningIndicator_offsetX") private var offsetX: Double = 16
+    @AppStorage("provisioningIndicator_offsetY") private var offsetY: Double = 80
+    @State private var dragOffset: CGSize = .zero
+    @State private var showingDetails = false
+
+    private var badgeColor: Color {
+        switch service.status {
+        case .unknown:
+            return Color.gray
+        case .expired:
+            return Color.red
+        case .valid(let date):
+            let remaining = date.timeIntervalSince(Date())
+            if remaining < 86400 * 2 {
+                // Low time remaining (< 2 days): warning red/orange
+                return Color.red
+            } else if remaining < 86400 * 4 {
+                // Moderate time (< 4 days): amber
+                return Color.orange
+            } else {
+                // Plenty of time: green
+                return Color.green
+            }
+        }
+    }
+
+    private var badgeIcon: String {
+        switch service.status {
+        case .unknown:
+            return "questionmark.circle.fill"
+        case .expired:
+            return "xmark.octagon.fill"
+        case .valid(let date):
+            let remaining = date.timeIntervalSince(Date())
+            if remaining < 86400 * 2 {
+                return "exclamationmark.triangle.fill"
+            } else {
+                return "clock.fill"
+            }
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: badgeIcon)
+                .font(.system(size: 11, weight: .bold))
+            Text(service.compactCountdown)
+                .font(.system(size: 12, weight: .bold, design: .monospaced))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(badgeColor.opacity(0.88), in: Capsule())
+        .overlay(
+            Capsule()
+                .stroke(Color.white.opacity(0.35), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.25), radius: 4, x: 0, y: 2)
+        .contentShape(Capsule())
+        .offset(x: offsetX + dragOffset.width, y: offsetY + dragOffset.height)
+        .gesture(
+            DragGesture()
+                .onChanged { value in
+                    dragOffset = value.translation
+                }
+                .onEnded { value in
+                    offsetX += value.translation.width
+                    offsetY += value.translation.height
+                    dragOffset = .zero
+                }
+        )
+        .onTapGesture {
+            showingDetails = true
+        }
+        .alert("Provisioning Profile Expiration", isPresented: $showingDetails) {
+            Button("OK", role: .cancel) {}
+            Button("Refresh") {
+                service.loadProfile()
+            }
+        } message: {
+            if let expDate = service.expirationDate {
+                let formatter = DateFormatter()
+                let _ = formatter.dateStyle = .medium
+                let _ = formatter.timeStyle = .medium
+                Text("Expires:\n\(formatter.string(from: expDate))\n\nRemaining:\n\(service.detailedRemaining)")
+            } else {
+                Text("No valid embedded provisioning profile detected.\n\n\(service.detailedRemaining)")
+            }
+        }
+        .onAppear {
+            service.startMonitoring()
+        }
+    }
+}
+
+/**
+ * Settings row for provisioning profile info and manual position reset.
+ */
+struct ProvisioningSettingsRow: View {
+    @StateObject private var service = ProvisioningProfileService.shared
+    @AppStorage("provisioningIndicator_offsetX") private var offsetX: Double = 16
+    @AppStorage("provisioningIndicator_offsetY") private var offsetY: Double = 80
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label("Profile Status", systemImage: "signature")
+                Spacer()
+                Text(service.compactCountdown)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+
+            if let expDate = service.expirationDate {
+                let formatter = DateFormatter()
+                let _ = formatter.dateStyle = .medium
+                let _ = formatter.timeStyle = .short
+                HStack {
+                    Text("Expires")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(formatter.string(from: expDate))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            HStack {
+                Button("Refresh Profile") {
+                    service.loadProfile()
+                }
+                .buttonStyle(.borderless)
+                .font(.footnote)
+
+                Spacer()
+
+                Button("Reset Overlay Position") {
+                    offsetX = 16
+                    offsetY = 80
+                }
+                .buttonStyle(.borderless)
+                .font(.footnote)
+            }
+            .padding(.top, 4)
+        }
+        .padding(.vertical, 2)
     }
 }

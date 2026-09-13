@@ -127,7 +127,11 @@ final class AppState: ObservableObject {
         let exts = Set(["mp3","m4a","aac","wav","flac","aiff","caf"])
         var urls: [URL] = []
         if let e = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) {
-            for case let fu as URL in e where exts.contains(fu.pathExtension.lowercased()) { urls.append(fu) }
+            while let fu = e.nextObject() as? URL {
+                if exts.contains(fu.pathExtension.lowercased()) {
+                    urls.append(fu)
+                }
+            }
         }
         var loaded: [AudioTrack] = []
         for u in urls { loaded.append(await AudioTrack.load(from: u)) }
@@ -284,12 +288,14 @@ final class AppState: ObservableObject {
         let t = max(0, min(time, duration))
         currentTime = t
         player?.seek(to: CMTime(seconds: t, preferredTimescale: 44100), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
-            guard let self else { return }
-            if self.isPlaying {
-                self.player?.playImmediately(atRate: self.playbackRate)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if self.isPlaying {
+                    self.player?.playImmediately(atRate: self.playbackRate)
+                }
+                self.updateNowPlaying()
+                self.savePlaybackState()
             }
-            self.updateNowPlaying()
-            self.savePlaybackState()
         }
     }
 
@@ -592,34 +598,48 @@ final class AppState: ObservableObject {
 
     private func setupNotifications() {
         NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: .main) { [weak self] _ in
-            guard let self else { return }
-            if let track = self.currentTrack {
-                self.savedTrackPositions.removeValue(forKey: track.url.path)
-                UserDefaults.standard.set(self.savedTrackPositions, forKey: "savedTrackPositions")
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let track = self.currentTrack {
+                    self.savedTrackPositions.removeValue(forKey: track.url.path)
+                    UserDefaults.standard.set(self.savedTrackPositions, forKey: "savedTrackPositions")
+                }
+                self.savedResetPosition = nil
+                if self.repeatMode == .one { self.seek(to: 0); self.play() } else { self.nextTrack() }
             }
-            self.savedResetPosition = nil
-            if self.repeatMode == .one { self.seek(to: 0); self.play() } else { self.nextTrack() }
         }
         NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] n in
             guard let ui = n.userInfo, let tv = ui[AVAudioSessionInterruptionTypeKey] as? UInt,
                   let type = AVAudioSession.InterruptionType(rawValue: tv) else { return }
-            if type == .began { self?.pause() }
-            else if let ov = ui[AVAudioSessionInterruptionOptionKey] as? UInt,
-                    AVAudioSession.InterruptionOptions(rawValue: ov).contains(.shouldResume) { self?.play() }
+            let shouldResume: Bool
+            if let ov = ui[AVAudioSessionInterruptionOptionKey] as? UInt {
+                shouldResume = AVAudioSession.InterruptionOptions(rawValue: ov).contains(.shouldResume)
+            } else {
+                shouldResume = false
+            }
+            Task { @MainActor [weak self] in
+                if type == .began {
+                    self?.pause()
+                } else if shouldResume {
+                    self?.play()
+                }
+            }
         }
     }
 
     private func setupTimeObserver() {
         let iv = CMTime(seconds: 0.25, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
         timeObserverToken = player?.addPeriodicTimeObserver(forInterval: iv, queue: .main) { [weak self] t in
-            guard let self else { return }
-            let s = CMTimeGetSeconds(t)
-            if !s.isNaN && !s.isInfinite { self.currentTime = s }
-            if let item = self.player?.currentItem {
-                let d = CMTimeGetSeconds(item.duration)
-                if !d.isNaN && !d.isInfinite && d > 0 { self.duration = d }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let s = CMTimeGetSeconds(t)
+                if !s.isNaN && !s.isInfinite { self.currentTime = s }
+                if let item = self.player?.currentItem {
+                    let d = CMTimeGetSeconds(item.duration)
+                    if !d.isNaN && !d.isInfinite && d > 0 { self.duration = d }
+                }
+                if abs(s - self.lastSavedTime) >= 3 { self.lastSavedTime = s; self.savePlaybackState() }
             }
-            if abs(s - self.lastSavedTime) >= 3 { self.lastSavedTime = s; self.savePlaybackState() }
         }
     }
 
