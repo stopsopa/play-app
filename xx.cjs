@@ -70,7 +70,7 @@ read
       description: `Check provisioning profile expiration`,
       confirm: false,
     },
-    [`provision.new`]: {
+    [`provision.reset`]: {
       command: `
 cat <<EEE
 
