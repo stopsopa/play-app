@@ -234,36 +234,41 @@ struct NowPlayingView: View {
 
     var queueSheet: some View {
         NavigationStack {
-            List(Array(state.queue.enumerated()), id: \.element.id) { idx, track in
-                HStack(spacing: 12) {
-                    if idx == state.currentIndex {
-                        Image(systemName: state.isPlaying ? "speaker.wave.2.fill" : "speaker.fill")
-                            .foregroundStyle(AppTheme.orange)
-                            .frame(width: 24)
-                    } else {
-                        Text("\(idx + 1)")
+            List {
+                ForEach(Array(state.queue.enumerated()), id: \.element.id) { idx, track in
+                    HStack(spacing: 12) {
+                        if idx == state.currentIndex {
+                            Image(systemName: state.isPlaying ? "speaker.wave.2.fill" : "speaker.fill")
+                                .foregroundStyle(AppTheme.orange)
+                                .frame(width: 24)
+                        } else {
+                            Text("\(idx + 1)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 24)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(track.displayName)
+                                .fontWeight(idx == state.currentIndex ? .bold : .regular)
+                                .foregroundStyle(idx == state.currentIndex ? AppTheme.orange : Color.primary)
+                                .lineLimit(1)
+                            Text(track.displayArtist)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                        Text(track.formattedDuration)
                             .font(.caption)
+                            .monospacedDigit()
                             .foregroundStyle(.secondary)
-                            .frame(width: 24)
                     }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(track.displayName)
-                            .fontWeight(idx == state.currentIndex ? .bold : .regular)
-                            .foregroundStyle(idx == state.currentIndex ? AppTheme.orange : Color.primary)
-                            .lineLimit(1)
-                        Text(track.displayArtist)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    Spacer()
-                    Text(track.formattedDuration)
-                        .font(.caption)
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
+                    .contentShape(Rectangle())
+                    .onTapGesture { state.playQueue(state.queue, startingAt: idx) }
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { state.playQueue(state.queue, startingAt: idx) }
+
+                // Extra bottom space so the last queue items are never clipped or hard to tap
+                BottomListSpacer(defaultHeight: 40, playerHeight: 40)
             }
             .navigationTitle("Queue")
             .navigationBarTitleDisplayMode(.inline)

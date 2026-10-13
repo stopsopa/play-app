@@ -34,6 +34,27 @@ struct AppTheme {
     }
 }
 
+// MARK: - Bottom List Spacer
+/**
+ * Extra non-interactive transparent element placed at the bottom of scrollable lists
+ * to prevent items from being obscured by the floating Mini Player bar, bottom Tab Bar, or home indicator.
+ */
+struct BottomListSpacer: View {
+    @EnvironmentObject var state: AppState
+    var defaultHeight: CGFloat = 40
+    var playerHeight: CGFloat = 90
+
+    var body: some View {
+        Color.clear
+            .frame(height: state.currentTrack != nil ? playerHeight : defaultHeight)
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .allowsHitTesting(false)
+    }
+}
+
+
 // MARK: - AudioTrack
 
 struct AudioTrack: Identifiable, Codable, Hashable, Equatable {

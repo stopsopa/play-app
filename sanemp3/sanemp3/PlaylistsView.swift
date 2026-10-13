@@ -36,6 +36,9 @@ struct PlaylistsView: View {
                             }
                         }
                         .onDelete { idx in idx.forEach { state.deletePlaylist(state.playlists[$0].id) } }
+
+                        // Extra bottom space so the last items are not obscured by the mini player or tab bar
+                        BottomListSpacer()
                     }.listStyle(.insetGrouped)
                 }
             }
@@ -109,6 +112,9 @@ struct PlaylistDetailView: View {
                             }
                             .onDelete { state.removeTrack(at: $0, from: playlistId) }
                             .onMove { state.moveTracks(from: $0, to: $1, in: playlistId) }
+
+                            // Extra bottom space so the last items are not obscured by the mini player or tab bar
+                            BottomListSpacer()
                         }
                         .listStyle(.plain)
                         .environment(\.editMode, isEditing ? .constant(.active) : .constant(.inactive))
@@ -201,6 +207,11 @@ struct AddToPlaylistSheet: View {
                             }
                         }
                     }
+                }
+
+                // Extra bottom space for comfortable scrolling and tapping
+                Section {
+                    BottomListSpacer(defaultHeight: 30, playerHeight: 30)
                 }
             }
             .navigationTitle("Add \(tracks.count) Song\(tracks.count == 1 ? "" : "s")")

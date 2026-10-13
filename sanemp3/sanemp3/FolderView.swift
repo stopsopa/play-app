@@ -217,6 +217,9 @@ struct FolderView: View {
                             }
                         }
                     }
+
+                    // Extra bottom space so the last items are not obscured by the mini player or tab bar
+                    BottomListSpacer()
                 }
                 .listStyle(.plain)
                 .refreshable { await state.scanFolder() }
