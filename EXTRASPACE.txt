@@ -1,0 +1,20 @@
+# Extra Bottom Space for Scrollable Lists & Panels
+
+## 1. Problem / Purpose
+- In scrollable lists (such as `FolderView` track list, `PlaylistsView`, `PlaylistDetailView`, and `NowPlayingView` queue sheet), items at the bottom of the list are obscured by:
+  - The persistent floating Mini Player bar (`MiniPlayer`) docked above the tab bar.
+  - The bottom Tab Bar (`TabView`).
+  - Home indicator safe area insets on modern iPhones.
+- Without extra bottom space, the final items in the list cannot be comfortably scrolled into full view or tapped.
+
+## 2. Implementation Specifications
+- Provide sufficient extra bottom padding/spacing at the end of lists and scrollable panels:
+  - Add explicit bottom inset/padding (e.g. `safeAreaInset(edge: .bottom)` or extra bottom row / spacer) to accommodate:
+    - Mini Player height (~56-64pt)
+    - Tab bar height (~49-52pt)
+    - Safe area bottom padding (~34pt)
+  - Ensure that when the Mini Player is present (`state.currentTrack != nil`), scrollable views have additional clearance (e.g. 80-120pt total bottom padding or an empty footer spacer).
+  - In sheets and modal panels (e.g., NowPlayingView queue sheet, Add to Playlist sheet), ensure the bottom-most row or action button has generous clearance from the bottom edge so it is never clipped or hard to tap.
+
+Prefered implementaiton  
+I think the best way to fix it would be to add extra non interactive , no label just white or even transparent element to the bottom of the list, no matter of sorting or anything, don't do any fancy tricks to introduce the padding

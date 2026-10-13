@@ -1,0 +1,23 @@
+# Lock Screen & Gray UI Specifications
+
+## 1. Prevent Screen Lock (Keep Screen Awake)
+- The app must prevent the iOS device screen from automatically locking or dimming while open and active:
+  - `UIApplication.shared.isIdleTimerDisabled = true` is set on app launch / appear (`sanemp3App.swift`).
+  - Screen lock prevention is reaffirmed whenever the scene transitions to `.active` (`onChange(of: scenePhase)`).
+  - Background playback session is configured with category `.playback` so playback continues uninterrupted even if the user manually locks the device screen or switches apps.
+  - User can toggle "Prevent Screen Lock" under NowPlaying menu / Settings.
+
+## 2. Inactive / Dimmed Screen (Gray UI)
+- To conserve battery while mounted in a car and prevent unintended touches:
+  - When idle without touch interaction for a short period (or after 3 seconds of inactivity), the screen dims down to an inactive/darkened gray appearance.
+  - The UI remains visible in low contrast / dimmed gray tones rather than completely powering off the display or locking the operating system.
+  - A single touch or tap wakes the interface back to full brightness/color immediately.
+
+## 3. Remote Control Integration & Screen Lock State
+- Even when the device is locked or running in the background:
+  - Full iPhone Lock Screen media controls (`MPNowPlayingInfoCenter` and `MPRemoteCommandCenter`) remain fully functional with playback progress, artwork, title, and artist.
+  - Physical car/Bluetooth remote buttons continue to work seamlessly according to the multi-tap spec:
+    - Single press Forward: Next track (or Restore position).
+    - Rapid double press Forward: Flash forward (+3s).
+    - Single press Backward: Restart song (if > 5s) or Previous track (if <= 5s).
+    - Rapid double press Backward: Flash backward (-3s).
