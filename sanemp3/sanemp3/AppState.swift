@@ -42,6 +42,29 @@ final class AppState: ObservableObject {
     // MARK: - Settings / Multi-Tap Configuration
     @Published var multiTapInterval: Double = 1.6
 
+    // MARK: - Inactivity UI Lock Screen
+    @Published var isUiLockEnabled: Bool = false {
+        didSet {
+            UserDefaults.standard.set(isUiLockEnabled, forKey: "isUiLockEnabled")
+            if isUiLockEnabled {
+                resetInactivityTimer()
+            } else {
+                stopInactivityTimer()
+                isUiLocked = false
+            }
+        }
+    }
+    @Published var uiLockTimeout: Double = 3.0 {
+        didSet {
+            UserDefaults.standard.set(uiLockTimeout, forKey: "uiLockTimeout")
+            if isUiLockEnabled {
+                resetInactivityTimer()
+            }
+        }
+    }
+    @Published var isUiLocked: Bool = false
+    private var uiLockTimer: Timer?
+
     // MARK: - Visual Flash Indicators (Top Squares turn brighter)
     @Published var isRewindActive = false
     @Published var isForwardActive = false
@@ -78,6 +101,16 @@ final class AppState: ObservableObject {
             multiTapInterval = (savedInterval * 10).rounded() / 10
         } else {
             multiTapInterval = 1.6
+        }
+        isUiLockEnabled = UserDefaults.standard.bool(forKey: "isUiLockEnabled")
+        let savedTimeout = UserDefaults.standard.double(forKey: "uiLockTimeout")
+        if savedTimeout >= 1.0 {
+            uiLockTimeout = min(60.0, savedTimeout)
+        } else {
+            uiLockTimeout = 3.0
+        }
+        if isUiLockEnabled {
+            resetInactivityTimer()
         }
         loadFolders(); loadPlaylists(); restoreLastFolder()
         setupNotifications(); setupRemoteCommands()
@@ -446,6 +479,51 @@ final class AppState: ObservableObject {
     func clearSavedTrackPositions() {
         savedTrackPositions.removeAll()
         UserDefaults.standard.removeObject(forKey: "savedTrackPositions")
+    }
+
+    // MARK: - Inactivity UI Lock Screen Management
+
+    /**
+     Resets the inactivity countdown timer if UI lock is enabled.
+     If the screen is currently locked, resetting the timer will not automatically unlock it.
+     */
+    func resetInactivityTimer() {
+        guard isUiLockEnabled else {
+            stopInactivityTimer()
+            return
+        }
+        let timeout = max(1.0, min(60.0, uiLockTimeout))
+        // If a valid timer already exists, just push its fire date forward
+        // instead of destroying and recreating it (avoids race conditions on rapid calls)
+        if let existing = uiLockTimer, existing.isValid {
+            existing.fireDate = Date().addingTimeInterval(timeout)
+            return
+        }
+        let timer = Timer(timeInterval: timeout, repeats: false) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self = self, self.isUiLockEnabled else { return }
+                self.isUiLocked = true
+            }
+        }
+        // Use .common mode so the timer fires even during scroll tracking
+        RunLoop.main.add(timer, forMode: .common)
+        uiLockTimer = timer
+    }
+
+    /**
+     Stops any active inactivity timer.
+     */
+    func stopInactivityTimer() {
+        uiLockTimer?.invalidate()
+        uiLockTimer = nil
+    }
+
+    /**
+     Unlocks the UI from the lock overlay and restarts the inactivity timer countdown.
+     */
+    func unlockUi() {
+        isUiLocked = false
+        resetInactivityTimer()
     }
 
     // MARK: - Bluetooth Remote Multi-Tap Handlers (Single press vs Multi-press)

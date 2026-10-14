@@ -19,6 +19,9 @@ struct ContentView: View {
                 PlaylistsView()
                     .tabItem { Label("Playlists", systemImage: "music.note.list") }
                     .tag(1)
+                SettingsView(showDoneButton: false)
+                    .tabItem { Label("Settings", systemImage: "gearshape.fill") }
+                    .tag(2)
             }
             .environmentObject(state)
 
@@ -29,10 +32,13 @@ struct ContentView: View {
                     .padding(.bottom, 52)
             }
         }
+        .applyLockScreenOverlay()
+        .trackUserTouches()
         .tint(AppTheme.orange)
         .sheet(isPresented: $showNowPlaying) {
             NowPlayingView()
                 .environmentObject(state)
+                .applyLockScreenOverlay()
                 .tint(AppTheme.orange)
         }
         .overlay(alignment: .topLeading) {
@@ -40,7 +46,12 @@ struct ContentView: View {
             ProvisioningIndicatorView()
             #endif
         }
-        .onAppear { state.restorePlaybackState() }
+        .onAppear {
+            state.restorePlaybackState()
+            if state.isUiLockEnabled {
+                state.resetInactivityTimer()
+            }
+        }
     }
 }
 

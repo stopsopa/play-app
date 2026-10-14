@@ -8,6 +8,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var state: AppState
     @Environment(\.dismiss) private var dismiss
+    var showDoneButton: Bool = true
     private let haptic = UIImpactFeedbackGenerator(style: .medium)
 
     var isDefaultInterval: Bool {
@@ -103,6 +104,41 @@ struct SettingsView: View {
                     .padding(.top, 4)
                 }
 
+                // MARK: - Inactivity UI Lock Section
+                Section {
+                    Toggle(isOn: $state.isUiLockEnabled) {
+                        Label("Enable UI Inactivity Lock", systemImage: "lock.fill")
+                    }
+
+                    if state.isUiLockEnabled {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Inactivity Delay")
+                                Spacer()
+                                Text("\(Int(state.uiLockTimeout.rounded()))s")
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                            }
+                            Slider(
+                                value: $state.uiLockTimeout,
+                                in: 1...60,
+                                step: 1
+                            ) {
+                                Text("Inactivity Delay")
+                            } minimumValueLabel: {
+                                Text("1s").font(.caption2).foregroundStyle(.secondary)
+                            } maximumValueLabel: {
+                                Text("60s").font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                } header: {
+                    Text("UI Inactivity Lock")
+                } footer: {
+                    Text("When enabled, the entire UI turns gray with a lock symbol after inactivity. Tapping the screen unlocks the UI so accidental touches are prevented.")
+                }
+
                 // MARK: - Playback Settings
                 Section("Playback") {
                     Toggle(isOn: Binding(
@@ -162,9 +198,11 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .fontWeight(.semibold)
+                if showDoneButton {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { dismiss() }
+                            .fontWeight(.semibold)
+                    }
                 }
             }
         }
