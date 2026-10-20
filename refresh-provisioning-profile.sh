@@ -1,3 +1,6 @@
+set -e
+/bin/bash check.xcode_version.sh
+
 APP_NAME="sanemp3.app"
 BUNDLE_ID="stopsopa.sanemp3"
 DERIVED_DATA="${HOME}/Library/Developer/Xcode/DerivedData"
