@@ -100,6 +100,29 @@ remember where I've finished
   - **2nd press of Next**: Advances to the next track (resuming at its saved timestamp if any).
   - If from 0:00 the user presses **Prev** instead (`currentTime <= 5s`), it moves to the previous track (resuming at its saved timestamp if any).
 
+# developer certificate expiration monitor & notifications
+- **Feature Name**: Developer Certificate / Provisioning Profile Expiration Monitor & Notification Service
+- **Code Location**:
+  - `sanemp3/sanemp3/Models.swift` (`ProvisioningProfileService`, `ProvisioningIndicatorView`, `ProvisioningSettingsRow`)
+  - `sanemp3/sanemp3/sanemp3App.swift` (initialization in `startMonitoring()` and foreground update)
+  - `sanemp3/sanemp3/SettingsView.swift` (settings row showing expiry date and status)
+  - `sanemp3/sanemp3/ContentView.swift` (floating countdown badge)
+- **Profile Parsing**: Locates `embedded.mobileprovision` in `Bundle.main`, decodes XML plist from CMS/PKCS#7 payload, and extracts `ExpirationDate`.
+- **Scheduled Local Notifications**:
+  - Schedules notifications via `UNUserNotificationCenter` for:
+    - `24 hours` before expiry
+    - `18 hours` before expiry
+    - `12 hours` before expiry
+    - `6 hours` before expiry
+    - `0 hours` before expiry (scheduled 1 minute prior to exact expiry time so iOS delivers it before app execution is revoked/evicted)
+  - Notification message format: `"XXX hours left - 25 Friday March 2026 expire"` (e.g. `24 hours left - 25 Friday March 2026 expire`, `0 hours left - 25 Friday March 2026 expire`).
+- **Notification Simulation Controls (Settings)**:
+  - Located in Settings under **Developer Certificate & Notifications**.
+  - Stepped slider with 5 discrete set points: `24, 18, 12, 6, 0` hours (`data-testid`: `cert-expiry-sim-slider`).
+  - Dynamic label indicating currently selected interval (e.g. `24h left`).
+  - **"Send"** button placed to the right of the slider (`data-testid`: `cert-expiry-sim-send-button`).
+  - Tapping "Send" triggers an immediate simulated notification with real or simulated fake expiration timestamp in format `"XXX hours left - 25 Friday March 2026 expire"`.
+
 # environment information
 - **OS**: macOS (Apple Silicon arm64)
 - **Shell**: `zsh`

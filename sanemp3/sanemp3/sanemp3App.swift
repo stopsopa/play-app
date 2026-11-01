@@ -24,10 +24,13 @@ struct sanemp3App: App {
                         options: []
                     )
                     try? AVAudioSession.sharedInstance().setActive(true)
+                    // Monitor developer certificate expiration and schedule milestone notifications
+                    ProvisioningProfileService.shared.startMonitoring()
                 }
                 .onChange(of: scenePhase) { phase in
                     if phase == .active {
                         UIApplication.shared.isIdleTimerDisabled = true
+                        ProvisioningProfileService.shared.updateCountdown()
                     }
                     if phase == .background || phase == .inactive {
                         AppState.shared.savePlaybackState()

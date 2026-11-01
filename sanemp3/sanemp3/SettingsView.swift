@@ -184,16 +184,14 @@ struct SettingsView: View {
                     Text("The app remembers playback positions (> 5s) when switching songs, allowing you to resume where you left off.")
                 }
 
-                #if DEBUG
-                // MARK: - Provisioning Profile (Development / Debug)
+                // MARK: - Provisioning Profile & Notification Simulation
                 Section {
                     ProvisioningSettingsRow()
                 } header: {
-                    Text("Development")
+                    Text("Developer Certificate & Notifications")
                 } footer: {
-                    Text("Displays expiration data extracted from embedded.mobileprovision.")
+                    Text("Displays expiration data extracted from embedded.mobileprovision and provides notification simulation slider.")
                 }
-                #endif
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
