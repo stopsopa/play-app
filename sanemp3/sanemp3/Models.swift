@@ -8,6 +8,7 @@ import AVFoundation
 import UIKit
 import SwiftUI
 import Combine
+import UserNotifications
 
 // MARK: - App Theme (Brown & Orange Palette)
 
@@ -217,7 +218,7 @@ enum ProvisioningStatus: Equatable {
 }
 
 @MainActor
-final class ProvisioningProfileService: ObservableObject {
+final class ProvisioningProfileService: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = ProvisioningProfileService()
 
     @Published private(set) var status: ProvisioningStatus = .unknown
@@ -228,7 +229,9 @@ final class ProvisioningProfileService: ObservableObject {
     private var hasLoaded = false
     private var timer: Timer?
 
-    private init() {}
+    override private init() {
+        super.init()
+    }
 
     deinit {
         timer?.invalidate()
@@ -238,6 +241,7 @@ final class ProvisioningProfileService: ObservableObject {
      * Starts periodic updates and loads profile if not already loaded.
      */
     func startMonitoring() {
+        UNUserNotificationCenter.current().delegate = self
         guard !hasLoaded else { return }
         hasLoaded = true
         loadProfile()
@@ -271,6 +275,7 @@ final class ProvisioningProfileService: ObservableObject {
             await MainActor.run {
                 self.expirationDate = date
                 self.updateCountdown()
+                self.scheduleExpiryNotifications(for: date)
             }
         }
     }
@@ -341,6 +346,113 @@ final class ProvisioningProfileService: ObservableObject {
 
             detailedRemaining = "\(days)d \(hours)h \(minutes)m remaining"
         }
+    }
+
+    /**
+     * Schedules local notifications for 24, 18, 12, 6, and 0 hours before developer certificate expiration.
+     * The 0-hour notification is dispatched 1 minute prior to exact expiration so iOS delivers it before app execution is evicted.
+     * Body format: "XXX hours left - 25 Friday March 2026 expire"
+     */
+    func scheduleExpiryNotifications(for expirationDate: Date) {
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+            if granted {
+                let milestones = [24, 18, 12, 6, 0]
+                let now = Date()
+
+                let formatter = DateFormatter()
+                formatter.locale = Locale(identifier: "en_US_POSIX")
+                formatter.dateFormat = "d EEEE MMMM yyyy"
+                let dateString = formatter.string(from: expirationDate)
+
+                let requestIds = milestones.map { "dev-cert-expiry-\($0)h" }
+                center.removePendingNotificationRequests(withIdentifiers: requestIds)
+
+                for hours in milestones {
+                    let triggerDate: Date
+                    if hours == 0 {
+                        // Deliver 1 minute (60 seconds) prior to exact expiration before OS evicts app
+                        triggerDate = expirationDate.addingTimeInterval(-60)
+                    } else {
+                        triggerDate = expirationDate.addingTimeInterval(-Double(hours * 3600))
+                    }
+
+                    let timeInterval: TimeInterval
+                    if hours == 0 {
+                        if now < expirationDate {
+                            if triggerDate > now {
+                                timeInterval = triggerDate.timeIntervalSince(now)
+                            } else {
+                                // Less than 1 minute remaining before expiry: trigger in 2 seconds
+                                timeInterval = 2
+                            }
+                        } else {
+                            timeInterval = -1
+                        }
+                    } else {
+                        timeInterval = triggerDate.timeIntervalSince(now)
+                    }
+
+                    if timeInterval > 0 {
+                        let content = UNMutableNotificationContent()
+                        content.title = "Certificate Expiry"
+                        content.body = "\(hours) hours left - \(dateString) expire"
+                        content.sound = .default
+
+                        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: timeInterval, repeats: false)
+                        let request = UNNotificationRequest(
+                            identifier: "dev-cert-expiry-\(hours)h",
+                            content: content,
+                            trigger: trigger
+                        )
+
+                        center.add(request)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Sends an immediate simulated notification for testing purposes using the specified hours milestone.
+     * Uses real expiration date if available, or falls back to a simulated future date.
+     * Body format: "XXX hours left - 25 Friday March 2026 expire"
+     */
+    func sendSimulatedNotification(hoursLeft: Int) {
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+            if granted {
+                let expDate = self.expirationDate ?? Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
+                let formatter = DateFormatter()
+                formatter.locale = Locale(identifier: "en_US_POSIX")
+                formatter.dateFormat = "d EEEE MMMM yyyy"
+                let dateString = formatter.string(from: expDate)
+
+                let content = UNMutableNotificationContent()
+                content.title = "Cert Expiry (Sim)"
+                content.body = "\(hoursLeft) hours left - \(dateString) expire"
+                content.sound = .default
+
+                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+                let request = UNNotificationRequest(
+                    identifier: "simulated-expiry-\(UUID().uuidString)",
+                    content: content,
+                    trigger: trigger
+                )
+                center.add(request)
+            }
+        }
+    }
+
+    /**
+     * Ensures local notifications are presented as banners and sounds even when app is active in foreground.
+     */
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound, .badge])
     }
 }
 
@@ -446,15 +558,25 @@ struct ProvisioningIndicatorView: View {
 }
 
 /**
- * Settings row for provisioning profile info and manual position reset.
+ * Settings row for provisioning profile info, manual position reset, and simulated notification trigger.
  */
 struct ProvisioningSettingsRow: View {
     @StateObject private var service = ProvisioningProfileService.shared
     @AppStorage("provisioningIndicator_offsetX") private var offsetX: Double = 16
     @AppStorage("provisioningIndicator_offsetY") private var offsetY: Double = 80
+    @State private var sliderIndex: Double = 0
+    private let intervalPoints: [Int] = [24, 18, 12, 6, 0]
+
+    private var currentHours: Int {
+        let index = Int(sliderIndex.rounded())
+        if index >= 0 && index < intervalPoints.count {
+            return intervalPoints[index]
+        }
+        return intervalPoints[0]
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Label("Profile Status", systemImage: "signature")
                 Spacer()
@@ -484,6 +606,7 @@ struct ProvisioningSettingsRow: View {
                 }
                 .buttonStyle(.borderless)
                 .font(.footnote)
+                .accessibilityIdentifier("cert-refresh-button")
 
                 Spacer()
 
@@ -493,8 +616,48 @@ struct ProvisioningSettingsRow: View {
                 }
                 .buttonStyle(.borderless)
                 .font(.footnote)
+                .accessibilityIdentifier("cert-reset-position-button")
             }
-            .padding(.top, 4)
+            .padding(.top, 2)
+
+            Divider()
+                .padding(.vertical, 2)
+
+            // Notification simulation controls
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Simulate Expiry Notification")
+                        .font(.footnote)
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Text("\(currentHours)h left")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(AppTheme.orange)
+                }
+
+                HStack(spacing: 12) {
+                    Slider(value: $sliderIndex, in: 0...Double(intervalPoints.count - 1), step: 1)
+                        .accessibilityIdentifier("cert-expiry-sim-slider")
+
+                    Button("Send") {
+                        service.sendSimulatedNotification(hoursLeft: currentHours)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AppTheme.orange)
+                    .font(.footnote.weight(.semibold))
+                    .accessibilityIdentifier("cert-expiry-sim-send-button")
+                }
+
+                HStack {
+                    ForEach(intervalPoints, id: \.self) { pt in
+                        Text("\(pt)h")
+                            .font(.caption2)
+                            .foregroundStyle(currentHours == pt ? AppTheme.orange : .secondary)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.trailing, 64)
+            }
         }
         .padding(.vertical, 2)
     }
