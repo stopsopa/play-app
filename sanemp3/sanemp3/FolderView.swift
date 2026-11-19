@@ -32,7 +32,7 @@ struct FolderView: View {
                     trackList
                 }
             }
-            .navigationTitle(state.currentFolderName)
+            .navigationTitle(state.currentFolderLabel)
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $search, prompt: "Search tracks")
             .toolbar {
@@ -61,8 +61,8 @@ struct FolderView: View {
                                         state.selectSavedFolder(bm)
                                     } label: {
                                         HStack {
-                                            Text(bm.name)
-                                            if bm.name == state.currentFolderName { Image(systemName: "checkmark") }
+                                            Text(state.folderLabel(bm))
+                                            if bm.id == state.currentFolderID { Image(systemName: "checkmark") }
                                         }
                                     }
                                 }
@@ -143,7 +143,7 @@ struct FolderView: View {
                         Button { state.selectSavedFolder(bm) } label: {
                             HStack {
                                 Image(systemName: "folder").foregroundStyle(.tint)
-                                Text(bm.name).foregroundStyle(.primary)
+                                Text(state.folderLabel(bm)).foregroundStyle(.primary)
                                 Spacer()
                                 Text("\(bm.trackCount)").font(.caption).foregroundStyle(.secondary)
                             }

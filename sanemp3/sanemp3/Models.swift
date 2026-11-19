@@ -194,11 +194,16 @@ struct FolderBookmark: Identifiable, Codable, Hashable {
     var bookmarkData: Data
     var lastOpened: Date
     var trackCount: Int
+    /**
+     * Full location of the folder when it was last opened. Used only to tell same-named folders
+     * apart (AppState.folderLabel). nil for folders imported by old versions until they are opened once.
+     */
+    var path: String?
 
     init(id: UUID = UUID(), name: String, bookmarkData: Data,
-         lastOpened: Date = Date(), trackCount: Int = 0) {
+         lastOpened: Date = Date(), trackCount: Int = 0, path: String? = nil) {
         self.id = id; self.name = name; self.bookmarkData = bookmarkData
-        self.lastOpened = lastOpened; self.trackCount = trackCount
+        self.lastOpened = lastOpened; self.trackCount = trackCount; self.path = path
     }
 }
 

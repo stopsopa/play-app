@@ -99,7 +99,7 @@ This section is about the physical buttons: the Back / Forward buttons on a Blue
 
 **B1.** The app counts every incoming command as one press. A short press is one command, so one press: fine. A long press is two commands (started + ended), so the app counts **two presses**. Two Forward presses mean "seek one step forward", two Back presses mean "restart the track". So today holding Forward jumps a few seconds instead of going to the next track, and holding Back restarts the song instead of going to the previous one.
 
-Nothing was changed here yet, the behaviour is the same as before.
+Status: fixed as described in "B suggested solution" below.
 
 **B2.** After a single press the app waits for the Decision Window (1.6 s by default) to see whether a second press follows, and only then changes the track. That waiting is a timer. iOS freezes apps that sit in the background without playing audio, and a frozen app's timers do not tick. So: music paused, phone locked, you press Next once. The app may be frozen before the 1.6 s pass, and the track changes only when the app wakes up (next button press, or opening the app). While music is playing the app is never frozen, so this only concerns presses made while paused.
 
@@ -130,7 +130,7 @@ Alternative that was considered and rejected: not registering the seek commands 
 
 **B2: two parts.**
 
-1. Turn on the audio background mode: Xcode > target `sanemp3` > Signing & Capabilities > + Capability > Background Modes > tick "Audio, AirPlay, and Picture in Picture". The project file has no such entry today. Without it iOS stops the music itself shortly after the screen locks or the app goes to the background, so this is worth doing regardless of B2. It can also be done by adding `INFOPLIST_KEY_UIBackgroundModes = audio` to both build configurations in `project.pbxproj`.
+1. Turn on the audio background mode: Xcode > target `sanemp3` > Signing & Capabilities > + Capability > Background Modes > tick "Audio, AirPlay, and Picture in Picture". Without it iOS stops the music itself shortly after the screen locks or the app goes to the background, so this is worth doing regardless of B2. Done by adding `INFOPLIST_KEY_UIBackgroundModes = audio` to both build configurations in `project.pbxproj`; the tick should now show in Xcode.
 2. Accept what is left. With the background mode on, the app stays awake while music plays, so the timer always works during playback. A single press made while **paused** with the phone locked can still land late, because iOS may freeze a silent app. The library already handles the worst part (a late timer never turns the next press into a wrong gesture). A complete fix would mean keeping the app awake artificially while paused, which costs battery and is not worth it.
 
 ## C. Storage and library
@@ -162,11 +162,11 @@ Three steps, all in `AppState.swift` plus one line in `FolderView.swift`:
 
 1. **Inside the app, always find a card by its unique number.** The app already knows the number of the folder being shown (`currentFolderID`). Use it in `scanFolder` (track count), `removeFolder` and for the checkmark in "Switch Folder", instead of comparing names.
 2. **When a folder is picked in Files, decide "same folder or new folder" by its location, not its name.** Compare the full path of the picked folder with the full paths of the folders already imported. Same path: refresh that card. Different path: create a new card, even when the name is the same. This is the only place where a lookup by number is impossible, because a freshly picked folder has no number yet.
-3. **Show the parent folder when two cards share a name**, for example `Music (2024)` and `Music (Car)`, so they can be told apart in the list.
+3. **Show the parent folder when two cards share a name**, the way VS Code labels same-named files: go up through the parent directories until the two differ and stop there. `…/2024/Music` and `…/Car/Music` become `Music — 2024` and `Music — Car`. `…/x/Lib/Music` and `…/y/Lib/Music` become `Music — x/Lib` and `Music — y/Lib`. A folder with a unique name shows its name only. Folders imported by an older version get their label once they have been opened once, because their location was not stored before.
 
 What I would deliberately leave alone: the track id stays "folder name + path inside the folder". Switching it to the folder's unique number sounds cleaner, but that number is created at import time, so removing a folder and importing it again would give every track a new id and wipe all remembered positions and playlist matches. The price of keeping the name is the rare collision described above (same folder name **and** same path inside it), and the only effect there is a shared remembered position.
 
-Not done yet.
+Status: done.
 
 ### C5 in plain words
 
@@ -178,7 +178,7 @@ With 30 files nobody notices. With a few hundred or a few thousand files, or a f
 
 ### C5 suggested solution
 
-Two changes in `scanFolder()` in `AppState.swift`, plus marking `AudioTrack.load` in `Models.swift` as allowed to run off the main thread:
+Two changes in `scanFolder()` in `AppState.swift`:
 
 1. **Do the folder walk on a background worker.** The main thread only starts the scan and receives the finished list, so the spinner keeps spinning and the rest of the app stays usable.
 2. **Read several files at the same time**, 6 at once. Not all at once: opening hundreds of files together makes things slower and uses a lot of memory. The results are sorted afterwards exactly as today, so the order in the list does not change.
@@ -187,7 +187,7 @@ What stays the same: the list appears when the whole scan is finished, as it doe
 
 Honest expectation: for a folder of a few dozen files you will see no difference. The gain is for folders with hundreds of files or files stored in iCloud. If your folders are small, this one can stay at the bottom of the list.
 
-Not done yet.
+Status: done.
 
 ## D. App lifecycle and UI
 

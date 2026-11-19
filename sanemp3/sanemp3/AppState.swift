@@ -43,7 +43,8 @@ final class AppState: ObservableObject {
     @Published var currentTracks: [AudioTrack] = []
     @Published var isLoadingTracks = false
     @Published var folderSortOption: TrackSortOption = .nameAsc
-    private var currentFolderID: UUID?
+    // Unique number of the folder shown in the Folder tab. Folders are always found by it, never by name.
+    @Published private(set) var currentFolderID: UUID?
 
     /**
      * Folders we currently hold access to, by FolderBookmark.id.
@@ -225,11 +226,57 @@ final class AppState: ObservableObject {
             print("sanemp3: no security-scoped access to folder \(importedFolders[i].name)")
         }
         openFolders[id] = url
+        var changed = false
         if stale, let fresh = try? url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil) {
             importedFolders[i].bookmarkData = fresh
+            changed = true
+        }
+        // Remember where the folder is now, for folderLabel(_:).
+        if importedFolders[i].path != Self.folderPath(url) {
+            importedFolders[i].path = Self.folderPath(url)
+            changed = true
+        }
+        if changed {
             persistFolders()
         }
         return url
+    }
+
+    // Full location of a folder in one fixed form, so two locations can be compared as text.
+    private static func folderPath(_ url: URL) -> String {
+        url.resolvingSymlinksInPath().path
+    }
+
+    /**
+     * Name of a folder for lists. When two imported folders have the same name, the parent
+     * directories are added until the two differ, the way VS Code labels same-named files:
+     *   /a/2024/Music and /a/Car/Music         -> "Music — 2024" and "Music — Car"
+     *   /a/x/Lib/Music and /a/y/Lib/Music      -> "Music — x/Lib" and "Music — y/Lib"
+     * A folder with a unique name is shown by its name only.
+     */
+    func folderLabel(_ folder: FolderBookmark) -> String {
+        guard let path = folder.path else { return folder.name }
+        // Parent directories, nearest first.
+        let parents = Array(path.split(separator: "/").dropLast().reversed())
+        var rivals = importedFolders
+            .filter { $0.id != folder.id && $0.name == folder.name }
+            .compactMap { $0.path }
+            .map { Array($0.split(separator: "/").dropLast().reversed()) }
+        if rivals.isEmpty { return folder.name }
+        for depth in parents.indices {
+            // Keep only the same-named folders that are still indistinguishable at this depth.
+            rivals = rivals.filter { $0.indices.contains(depth) && $0[depth] == parents[depth] }
+            if rivals.isEmpty {
+                return "\(folder.name) — \(parents[0...depth].reversed().joined(separator: "/"))"
+            }
+        }
+        return folder.name
+    }
+
+    // Label of the folder shown in the Folder tab.
+    var currentFolderLabel: String {
+        guard let folder = importedFolders.first(where: { $0.id == currentFolderID }) else { return currentFolderName }
+        return folderLabel(folder)
     }
 
     // Gives back access to one folder. Safe to call for a folder that was never opened.
@@ -240,16 +287,27 @@ final class AppState: ObservableObject {
         }
     }
 
-    // Folder picked in the Files picker.
+    /**
+     * Folder picked in the Files picker.
+     * It is the same folder as an already imported one only when it is at the same location.
+     * Two different folders that merely share a name each get their own entry.
+     */
     func openFolder(_ url: URL) {
         let scoped = url.startAccessingSecurityScopedResource()
         let bm = (try? url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil)) ?? Data()
+        let pickedPath = Self.folderPath(url)
+        // Same location implies same name, so only same-named folders have to be resolved and compared.
+        let known = importedFolders.first { candidate in
+            candidate.name == url.lastPathComponent
+                && folderURL(for: candidate.id).map(Self.folderPath) == pickedPath
+        }
         let folder: FolderBookmark
-        if let i = importedFolders.firstIndex(where: { $0.name == url.lastPathComponent }) {
+        if let known, let i = importedFolders.firstIndex(where: { $0.id == known.id }) {
             importedFolders[i].bookmarkData = bm; importedFolders[i].lastOpened = Date()
+            importedFolders[i].path = pickedPath
             folder = importedFolders[i]
         } else {
-            folder = FolderBookmark(name: url.lastPathComponent, bookmarkData: bm)
+            folder = FolderBookmark(name: url.lastPathComponent, bookmarkData: bm, path: pickedPath)
             importedFolders.insert(folder, at: 0)
         }
         // Access held through an older URL of the same folder is replaced by the fresh one.
@@ -284,7 +342,7 @@ final class AppState: ObservableObject {
     func removeFolder(_ bookmark: FolderBookmark) {
         closeFolder(bookmark.id)
         importedFolders.removeAll { $0.id == bookmark.id }
-        if currentFolderName == bookmark.name {
+        if currentFolderID == bookmark.id {
             currentFolderURL = nil; currentFolderID = nil; currentFolderName = "No Folder Selected"; currentTracks = []
         }
         persistFolders()
@@ -296,30 +354,62 @@ final class AppState: ObservableObject {
               let folder = importedFolders.first(where: { $0.id == folderID })
         else { return }
         isLoadingTracks = true
-        let exts = Set(["mp3","m4a","aac","wav","flac","aiff","caf"])
-        var urls: [URL] = []
-        if let e = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) {
-            while let fu = e.nextObject() as? URL {
-                if exts.contains(fu.pathExtension.lowercased()) {
-                    urls.append(fu)
+        // The walk through the folder runs on a background thread, so the screen stays responsive.
+        let files = await Task.detached(priority: .userInitiated) {
+            AppState.findAudioFiles(in: url)
+        }.value
+        /**
+         * Metadata of several files is read at the same time, at most `parallelLoads` at once.
+         * The order they finish in does not matter: the list is sorted below.
+         */
+        let parallelLoads = 6
+        let loaded = await withTaskGroup(of: AudioTrack.self) { group in
+            var result: [AudioTrack] = []
+            var waiting = files.makeIterator()
+            // Starts reading the next file, if there is one left.
+            func startNext() {
+                guard let file = waiting.next() else { return }
+                group.addTask {
+                    await AudioTrack.load(from: file.url, folder: folder, relativePath: file.relativePath)
                 }
             }
-        }
-        let basePath = url.resolvingSymlinksInPath().path + "/"
-        var loaded: [AudioTrack] = []
-        for u in urls {
-            // Path inside the folder: the stable part of a track's identity.
-            let path = u.resolvingSymlinksInPath().path
-            let relative = path.hasPrefix(basePath) ? String(path.dropFirst(basePath.count)) : u.lastPathComponent
-            loaded.append(await AudioTrack.load(from: u, folder: folder, relativePath: relative))
+            for _ in 0..<parallelLoads {
+                startNext()
+            }
+            while let track = await group.next() {
+                result.append(track)
+                startNext()
+            }
+            return result
         }
         // The user switched to another folder while this one was being scanned.
         if currentFolderID != folderID { return }
         currentTracks = folderSortOption.sort(loaded)
         isLoadingTracks = false
-        if let i = importedFolders.firstIndex(where: { $0.name == url.lastPathComponent }) {
+        if let i = importedFolders.firstIndex(where: { $0.id == folderID }) {
             importedFolders[i].trackCount = loaded.count; persistFolders()
         }
+    }
+
+    /**
+     * Lists every audio file under `folder`, with its path inside the folder
+     * (the stable part of a track's identity). Touches only the file system,
+     * so it is safe to run off the main thread.
+     */
+    nonisolated private static func findAudioFiles(in folder: URL) -> [(url: URL, relativePath: String)] {
+        let exts = Set(["mp3","m4a","aac","wav","flac","aiff","caf"])
+        let basePath = folder.resolvingSymlinksInPath().path + "/"
+        var files: [(url: URL, relativePath: String)] = []
+        if let e = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) {
+            while let fu = e.nextObject() as? URL {
+                if exts.contains(fu.pathExtension.lowercased()) {
+                    let path = fu.resolvingSymlinksInPath().path
+                    let relative = path.hasPrefix(basePath) ? String(path.dropFirst(basePath.count)) : fu.lastPathComponent
+                    files.append((fu, relative))
+                }
+            }
+        }
+        return files
     }
 
     func setFolderSort(_ opt: TrackSortOption) {
@@ -760,12 +850,15 @@ final class AppState: ObservableObject {
         }
 
         /**
-         * Long press. iOS sends this command twice per long press (begin and end), so one long
-         * press still counts as two presses. Left as it was on purpose, see SUGGESTED_CHANGES.md B1.
+         * Long press. iOS sends this command twice per long press: "begin" on push, "end" on release.
+         * Only "begin" counts, so a long press is exactly one press, the same as a short one
+         * (SUGGESTED_CHANGES.md B1).
          */
         cc.seekForwardCommand.isEnabled = true
-        cc.seekForwardCommand.addTarget { [weak self] _ in
-            self?.press(.forward)
+        cc.seekForwardCommand.addTarget { [weak self] e in
+            if (e as? MPSeekCommandEvent)?.type == .beginSeeking {
+                self?.press(.forward)
+            }
             return .success
         }
 
@@ -778,8 +871,10 @@ final class AppState: ObservableObject {
 
         // Long press, same remark as for seekForwardCommand above.
         cc.seekBackwardCommand.isEnabled = true
-        cc.seekBackwardCommand.addTarget { [weak self] _ in
-            self?.press(.back)
+        cc.seekBackwardCommand.addTarget { [weak self] e in
+            if (e as? MPSeekCommandEvent)?.type == .beginSeeking {
+                self?.press(.back)
+            }
             return .success
         }
 
