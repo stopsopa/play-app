@@ -112,7 +112,7 @@ final class Rig {
 @MainActor
 final class PlayLogicTests: XCTestCase {
 
-    // LOGIC_FOR_PLAY.md section 8, step by step.
+    // LOGIC_FOR_PLAY.md section 9, step by step.
     func testExampleTimeline() {
         let r = Rig()
 
@@ -127,32 +127,39 @@ final class PlayLogicTests: XCTestCase {
         XCTAssertEqual(r.logic.currentIndex, 1)
         XCTAssertEqual(r.engine.position, 0)
 
-        // 1:03 Back (B at 0:01.4), 1:04.6 window expires
-        r.tick(1.4)
+        // 1:10 Back (B at 0:08.4), 1:11.6 window expires
+        r.tick(8.4)
         r.logic.press(.back)
         r.tick(1.6)
-        XCTAssertEqual(r.resume(1) ?? -1, 3, accuracy: accuracy)
+        XCTAssertEqual(r.resume(1) ?? -1, 10, accuracy: accuracy)
         XCTAssertEqual(r.logic.currentIndex, 0)
         XCTAssertEqual(r.engine.position, 61.6, accuracy: accuracy)
 
-        // 1:10 Back (A at 1:07), 1:11 Back, 1:12 Back, 1:13.6 window expires
-        r.tick(5.4)
+        // 1:20 Back (A at 1:10), 1:21 Back, 1:22 Back, 1:23 Back, 1:24.6 window expires
+        r.tick(8.4)
         r.logic.press(.back)
-        XCTAssertEqual(r.engine.position, 67, accuracy: accuracy)
+        XCTAssertEqual(r.engine.position, 70, accuracy: accuracy)
+        r.tick(1)
+        r.logic.press(.back)
+        XCTAssertEqual(r.logic.gestureState, .pendingRestart)
+        XCTAssertEqual(r.engine.position, 71, accuracy: accuracy)
         r.tick(1)
         r.logic.press(.back)
         XCTAssertEqual(r.logic.gestureState, .seeking)
-        XCTAssertEqual(r.engine.position, 65, accuracy: accuracy)
+        XCTAssertEqual(r.engine.position, 69, accuracy: accuracy)
         r.tick(1)
         r.logic.press(.back)
-        XCTAssertEqual(r.engine.position, 63, accuracy: accuracy)
+        XCTAssertEqual(r.engine.position, 67, accuracy: accuracy)
         r.tick(1.6)
         XCTAssertEqual(r.logic.gestureState, .idle)
         XCTAssertEqual(r.logic.currentIndex, 0)
-        XCTAssertEqual(r.engine.position, 64.6, accuracy: accuracy)
+        XCTAssertEqual(r.engine.position, 68.6, accuracy: accuracy)
 
-        // 1:20 Back (A at 1:11), 1:21.6 window expires
-        r.tick(6.4)
+        // 1:30 Back (A at 1:14), 1:31 Back, 1:32.6 window expires
+        r.tick(5.4)
+        r.logic.press(.back)
+        XCTAssertEqual(r.engine.position, 74, accuracy: accuracy)
+        r.tick(1)
         r.logic.press(.back)
         r.tick(1.6)
         XCTAssertEqual(r.logic.currentIndex, 0)
@@ -160,13 +167,16 @@ final class PlayLogicTests: XCTestCase {
         XCTAssertTrue(r.engine.playing)
     }
 
-    // Section 5 examples. Paused, so only the seeks move the position.
+    // Section 6 examples. Paused, so only the seeks move the position.
     func testSeekExamples() {
         let cases: [([NavButton], TimeInterval)] = [
             ([.forward, .forward], 103),
             ([.forward, .forward, .forward, .forward], 109),
-            ([.back, .back, .back], 94),
+            ([.back, .back, .back], 97),
+            ([.back, .back, .back, .back], 94),
             ([.forward, .back], 97),
+            ([.back, .forward], 103),
+            ([.back, .back, .forward], 103),
         ]
         for (buttons, expected) in cases {
             let r = Rig(startAt: 1, play: false, position: 100)
@@ -181,7 +191,7 @@ final class PlayLogicTests: XCTestCase {
 
     func testSeekBackClampsAtZeroAndStaysOnTrack() {
         let r = Rig(startAt: 1, play: false, position: 2)
-        r.presses([.back, .back])
+        r.presses([.back, .back, .back])
         r.tick(5)
         XCTAssertEqual(r.engine.position, 0)
         XCTAssertEqual(r.logic.currentIndex, 1)
@@ -210,21 +220,35 @@ final class PlayLogicTests: XCTestCase {
         XCTAssertEqual(all.resume(2), 50)
     }
 
-    func testBackOnFirstTrackBelowThresholdRestarts() {
-        let r = Rig(startAt: 0, play: false, position: 2)
+    func testSingleBackOnFirstTrackRestarts() {
+        let r = Rig(startAt: 0, play: false, position: 50)
         r.logic.press(.back)
         r.tick(5)
         XCTAssertEqual(r.logic.currentIndex, 0)
         XCTAssertEqual(r.engine.position, 0)
     }
 
-    // The threshold is compared with the position at the press, not at the expiry.
-    func testThresholdUsesPositionAtThePress() {
-        let r = Rig(startAt: 1, play: true, position: 3)
+    // Single Back leaves the track no matter how far into it we are.
+    func testSingleBackGoesToPreviousFromAnyPosition() {
+        let r = Rig(startAt: 1, play: false, position: 100)
         r.logic.press(.back)
         r.tick(5)
         XCTAssertEqual(r.logic.currentIndex, 0)
-        XCTAssertEqual(r.resume(1), 8)
+        XCTAssertEqual(r.resume(1), 100)
+    }
+
+    // Exactly two Backs: nothing moves until the window expires, then the track restarts.
+    func testDoubleBackRestartsTrack() {
+        let r = Rig(startAt: 1, play: false, position: 100)
+        r.presses([.back, .back])
+        XCTAssertEqual(r.logic.gestureState, .pendingRestart)
+        XCTAssertEqual(r.engine.position, 100)
+        r.tick(5)
+        XCTAssertEqual(r.logic.gestureState, .idle)
+        XCTAssertEqual(r.logic.currentIndex, 1)
+        XCTAssertEqual(r.engine.position, 0)
+        // Restart only seeks, the Resume Point is not touched.
+        XCTAssertNil(r.resume(1))
     }
 
     func testTrackEndWhileForwardPendingAdvancesOnce() {

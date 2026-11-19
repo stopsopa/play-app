@@ -41,6 +41,8 @@ struct DecisionWindowIndicator: View {
             return "DECISION WINDOW ACTIVE: PENDING back (\(left))"
         case .pending(.forward):
             return "DECISION WINDOW ACTIVE: PENDING forward (\(left))"
+        case .pendingRestart:
+            return "DECISION WINDOW ACTIVE: PENDING restart, 2x back (\(left))"
         case .seeking:
             return "DECISION WINDOW ACTIVE: SEEKING (\(left))"
         }
@@ -60,7 +62,6 @@ struct SettingsBar: View {
             HStack(spacing: 24) {
                 secondsStepper("Decision Window", value: $logic.settings.decisionWindow, id: "setting-decision-window")
                 secondsStepper("Seek Step", value: $logic.settings.seekStep, id: "setting-seek-step")
-                secondsStepper("Restart Threshold", value: $logic.settings.restartThreshold, id: "setting-restart-threshold")
             }
             HStack(spacing: 24) {
                 Toggle("Resume when a track starts on its own", isOn: $logic.settings.resumeOnNaturalAdvance)

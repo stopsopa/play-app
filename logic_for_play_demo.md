@@ -60,7 +60,7 @@ Before writing code:
 ### 5.2 Suggested shape
 
 ```swift
-/** Stable identity of a track. Never an absolute file path (LOGIC_FOR_PLAY.md 6.6). */
+/** Stable identity of a track. Never an absolute file path (LOGIC_FOR_PLAY.md 7.6). */
 public struct TrackID: Hashable, Codable, Sendable { public let rawValue: String }
 
 public struct Track: Identifiable, Hashable, Sendable {
@@ -74,7 +74,6 @@ public enum NavButton: Sendable { case back, forward }
 public struct PlayLogicSettings: Codable, Equatable, Sendable {
     public var decisionWindow: TimeInterval = 1.6
     public var seekStep: TimeInterval = 3
-    public var restartThreshold: TimeInterval = 3
     public var resumeOnNaturalAdvance: Bool = true
     public var repeatQueue: Bool = false
 }
@@ -91,14 +90,14 @@ public struct PlayLogicSettings: Codable, Equatable, Sendable {
     var onTrackEnded: (() -> Void)? { get set }
 }
 
-/** Resume Memory (LOGIC_FOR_PLAY.md 1 and 6). nil = never set. */
+/** Resume Memory (LOGIC_FOR_PLAY.md 1 and 7). nil = never set. */
 @MainActor public protocol ResumeStore: AnyObject {
     func resumePoint(for id: TrackID) -> TimeInterval?
     func setResumePoint(_ position: TimeInterval?, for id: TrackID)
     func resetAll()
 }
 
-public enum GestureState: Equatable, Sendable { case idle, pending(NavButton), seeking }
+public enum GestureState: Equatable, Sendable { case idle, pending(NavButton), pendingRestart, seeking }
 
 @MainActor public final class PlayLogicController: ObservableObject {
     @Published public private(set) var queue: [Track]
@@ -124,18 +123,19 @@ public enum GestureState: Equatable, Sendable { case idle, pending(NavButton), s
 
 Also ship in the package:
 
-- `UserDefaultsResumeStore`: default `ResumeStore`, one dictionary under one key. Permanent across launches and rebuilds (6.5).
+- `UserDefaultsResumeStore`: default `ResumeStore`, one dictionary under one key. Permanent across launches and rebuilds (7.5).
 - `Scheduler`: tiny injectable timer abstraction (`schedule(after:_:) -> cancellable`), with a real implementation and a manual one for tests. The Decision Window timer goes only through it.
 - Optionally, in a **separate target** of the same package (`PlayLogicAVFoundation`), an `AVPlayerEngine` implementing `PlaybackEngine`. Only if `sanemp3` findings show both apps can share it; otherwise the demo keeps its own small engine.
 
 ### 5.3 Behaviour to implement (all from `LOGIC_FOR_PLAY.md`)
 
-- State machine `IDLE -> PENDING -> SEEKING` (section 7). `PENDING` remembers the button **and the position at the moment of the press**; the Restart Threshold is compared against that remembered position, not the position at expiry.
-- Single-press action runs when the window expires (section 4), including queue edges.
-- Multi-press: first press moves nothing, second and each later press moves one Seek Step in the direction of that press, each press restarts the window (section 5). Clamp at `0` and at the end.
-- Resume Point rules 1 to 6 (section 6): save on leave, restore on land, clear on natural end, restart only seeks, permanent, stable key.
+- State machine `IDLE -> PENDING -> PENDING_RESTART -> SEEKING` (section 8). There is no Restart Threshold: the position in the track plays no role.
+- Single-press action runs when the window expires (section 4), including queue edges: Forward = next track, Back = previous track from any position.
+- Double-Back (exactly two presses, both Back) restarts the track when the window expires (section 5). Neither press moves anything.
+- Seek gesture (section 6): every other gesture with two or more presses. Forward gestures seek from the second press, Back gestures from the third. Each seeking press moves one Seek Step in the direction of that press, each press restarts the window. Clamp at `0` and at the end.
+- Resume Point rules 1 to 6 (section 7): save on leave, restore on land, clear on natural end, restart only seeks, permanent, stable key.
 - Natural advance obeys `resumeOnNaturalAdvance` (section 2). User actions always resume.
-- Any track change cancels the gesture (section 7). Play/pause state is kept across track changes and seeks. The logic works the same while paused.
+- Any track change cancels the gesture (section 8). Play/pause state is kept across track changes and seeks. The logic works the same while paused.
 - A missing Resume Point (`nil`) plays from `0`.
 - Changing settings while a gesture is open: new values apply from the next press; do not rebuild a running timer.
 
@@ -143,8 +143,9 @@ Also ship in the package:
 
 `Tests/PlayLogicTests` with a fake engine, in-memory store and manual scheduler. No real audio, no real waiting. At minimum:
 
-- the whole example timeline from section 8, step by step;
-- every example in section 5 (`F,F` = +3; `F,F,F,F` = +9; `B,B,B` = -6; `F,B` = -3);
+- the whole example timeline from section 9, step by step;
+- every example in section 6 (`F,F` = +3; `F,F,F,F` = +9; `B,B,B` = -3; `B,B,B,B` = -6; `F,B` = -3; `B,F` = +3);
+- single Back goes to the previous track from any position; `B,B` restarts the track;
 - both clamps;
 - queue edges (Forward on last, Back on first, with repeat on and off);
 - track ends while a Forward is pending: exactly one advance, no double skip;
@@ -180,11 +181,10 @@ Keys must work whenever the window is active, regardless of which control has fo
 
 ### 6.4 Layout, top to bottom
 
-1. **Decision Window indicator**, always at the top of the view. Clearly inactive when idle. When active: visibly lit, shows the state (`PENDING back` / `PENDING forward` / `SEEKING`) and a bar that drains over the remaining window time, restarting on every press. Driven by `gestureState` and `decisionWindowEndsAt`.
+1. **Decision Window indicator**, always at the top of the view. Clearly inactive when idle. When active: visibly lit, shows the state (`PENDING back` / `PENDING forward` / `PENDING restart` / `SEEKING`) and a bar that drains over the remaining window time, restarting on every press. Driven by `gestureState` and `decisionWindowEndsAt`.
 2. **Settings / controls row**:
    - Decision Window (seconds, numeric)
    - Seek Step (seconds, numeric)
-   - Restart Threshold (seconds, numeric)
    - "Resume when a track starts on its own" (toggle)
    - **"Reset all Resume Points"** (button)
    - "Choose folder" (button)
@@ -198,7 +198,7 @@ Keys must work whenever the window is active, regardless of which control has fo
      - On the current row, the part from the left edge up to `position / duration` is **inverted**: dark gray background, white text. The split cuts through the letters, so a letter half way across the edge is half white, half dark gray. (Draw the label twice, normal and inverted, and mask the inverted one to the progress width.)
      - Progress updates smoothly while playing (several times a second is enough) and immediately on seek.
    - **Resume Point column** (right): the current stored Resume Point of that track, always shown, for every track, updated live whenever it changes. Show `null` when nothing is stored for that track. Format `m:ss`. Note a stored `0` (after natural end) is shown as `0:00`, not `null`; `null` appears only for tracks never saved and after "Reset all Resume Points".
-   - **Clicking a row** calls `select(index:)`: switches to that track, starting from its Resume Point, or from the start when it has none. The track being left gets its position saved (rule 6.1). This is all done by the library, the row only makes the call.
+   - **Clicking a row** calls `select(index:)`: switches to that track, starting from its Resume Point, or from the start when it has none. The track being left gets its position saved (rule 7.1). This is all done by the library, the row only makes the call.
 
 ### 6.5 `data-testid` equivalent
 
@@ -211,13 +211,13 @@ Give every interactive element and every row a unique `accessibilityIdentifier` 
 3. Write the tests. Ask the user to run them. Fix until green.
 4. Wire the package into the demo project.
 5. Build the demo: engine, folder picker, keyboard, indicator, settings row, table.
-6. Give the user a short manual test checklist that follows `LOGIC_FOR_PLAY.md` section 8.
+6. Give the user a short manual test checklist that follows `LOGIC_FOR_PLAY.md` section 9.
 7. Stop. Integration into `sanemp3` is a separate task. Finish by listing, in "Findings from sanemp3", what will have to change there to adopt the library.
 
 ## 8. Done when
 
 - All package tests pass.
-- In the demo, the section 8 timeline can be reproduced by hand with the arrow keys, and the indicator, the inverted progress and the Resume Point column show what is happening at every step.
+- In the demo, the section 9 timeline can be reproduced by hand with the arrow keys, and the indicator, the inverted progress and the Resume Point column show what is happening at every step.
 - Resume Points survive quitting and relaunching the demo, and vanish only on "Reset all Resume Points".
 - The demo contains no navigation/resume logic of its own.
 - `sanemp3/` is untouched.
@@ -253,5 +253,5 @@ What adopting the library will need in `sanemp3` (separate task):
 - Replace `playQueue` with `setQueue(_:startAt:play:)`, list taps with `select(index:)`, the scrubber with `seek(to:)`.
 - Remove `forwardClickCount`, tap tasks, `savedResetPosition`, `savedTrackPositions` and `nextTrack` / `previousTrack` (fixes 1, 2, 3).
 - Call `saveCurrentResumePoint()` when the app goes to background.
-- Map `multiTapInterval` to `settings.decisionWindow`; add settings UI for Seek Step, Restart Threshold and "Resume when a track starts on its own".
+- Map `multiTapInterval` to `settings.decisionWindow`; add settings UI for Seek Step and "Resume when a track starts on its own". The hardcoded 5 s restart threshold goes away: single Back = previous track, Double-Back = restart.
 - Add the audio background mode (fixes 4). The library also resolves a late timer on the next press.

@@ -41,8 +41,6 @@ public final class PlayLogicController: ObservableObject {
     private let store: any ResumeStore
     private let scheduler: any PlayLogicScheduler
     private var cancelTimer: PlayLogicCancel?
-    // Position at the moment of the press that opened the gesture (LOGIC_FOR_PLAY.md 7).
-    private var pendingPressPosition: TimeInterval = 0
 
     public init(
         engine: any PlaybackEngine,
@@ -143,11 +141,18 @@ public final class PlayLogicController: ObservableObject {
     // MARK: - Back / Forward
 
     /**
-     * One Press of Back or Forward (LOGIC_FOR_PLAY.md 4, 5, 7).
-     *   first press            - opens the gesture, moves nothing
-     *   second and later press - seeks one Seek Step in the direction of that press
-     *   every press            - restarts the Decision Window
-     * The single-press action (change / restart track) runs when the window expires.
+     * One Press of Back or Forward (LOGIC_FOR_PLAY.md 4, 5, 6, 8).
+     *   first press         - opens the gesture, moves nothing
+     *   Back after one Back - still moves nothing: two Backs so far (restart candidate)
+     *   any other press     - seeks one Seek Step in the direction of that press
+     *   every press         - restarts the Decision Window
+     * When the window expires:
+     *   one Forward -> next track, one Back -> previous track, exactly two Backs -> restart track,
+     *   anything else was a seek -> nothing.
+     *
+     *   Forward, Forward       = +1 step      Back, Back             = restart
+     *   Forward, Back          = -1 step      Back, Back, Back       = -1 step
+     *   Back, Forward          = +1 step      Back, Back, Back, Back = -2 steps
      */
     public func press(_ button: NavButton) {
         guard currentIndex != nil else { return }
@@ -161,11 +166,12 @@ public final class PlayLogicController: ObservableObject {
             windowExpired()
         }
 
-        switch gestureState {
-        case .idle:
-            pendingPressPosition = engine.position
+        switch (gestureState, button) {
+        case (.idle, _):
             gestureState = .pending(button)
-        case .pending, .seeking:
+        case (.pending(.back), .back):
+            gestureState = .pendingRestart
+        default:
             gestureState = .seeking
             seekOneStep(button)
         }
@@ -218,28 +224,33 @@ public final class PlayLogicController: ObservableObject {
         decisionWindowEndsAt = nil
     }
 
-    // Decision Window is over: run the single-press action, or nothing after a seek.
+    // Decision Window is over: change track, restart track, or nothing after a seek.
     private func windowExpired() {
         let state = gestureState
         cancelGesture()
-        guard case .pending(let button) = state, let index = currentIndex else { return }
+        guard let index = currentIndex else { return }
 
-        switch button {
-        case .forward:
+        switch state {
+        case .pending(.forward):
             // Forward on the last track with repeat off: nothing.
             if let next = nextIndex(after: index) {
                 go(to: next)
             }
-        case .back:
-            /**
-             * Above the threshold: restart. Only seeks to 0, the Resume Point is rewritten
-             * later, when we leave. First track at or below the threshold: restart as well.
-             */
-            if pendingPressPosition > settings.restartThreshold || index == 0 {
+        case .pending(.back):
+            // Single Back: previous track from any position. On the first track: restart it.
+            if index == 0 {
                 engine.seek(to: 0)
             } else {
                 go(to: index - 1)
             }
+        case .pendingRestart:
+            /**
+             * Exactly two Backs: restart. Only seeks to 0, the Resume Point is rewritten
+             * later, when we leave.
+             */
+            engine.seek(to: 0)
+        case .idle, .seeking:
+            break
         }
     }
 
@@ -278,7 +289,7 @@ public final class PlayLogicController: ObservableObject {
     }
 
     /**
-     * The current track played to its end (LOGIC_FOR_PLAY.md 3 and 6.3).
+     * The current track played to its end (LOGIC_FOR_PLAY.md 3 and 7.3).
      * Clears its Resume Point, cancels any open gesture (no double skip when a Forward
      * was pending) and moves on by itself.
      */

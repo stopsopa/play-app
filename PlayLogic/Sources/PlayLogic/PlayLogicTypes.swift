@@ -3,7 +3,7 @@ import Foundation
 /**
  * One track of the Queue, as the library sees it.
  *
- * `key` is the stable identity used for the Resume Point (LOGIC_FOR_PLAY.md 6.6).
+ * `key` is the stable identity used for the Resume Point (LOGIC_FOR_PLAY.md 7.6).
  * It must not change between launches or rebuilds, so never use an absolute file path
  * or a freshly generated UUID. Good key: "<folder name>/<path inside the folder>".
  */
@@ -28,14 +28,16 @@ public enum NavButton: Equatable, Sendable {
 }
 
 /**
- * State of the press gesture (LOGIC_FOR_PLAY.md 7).
- *   idle     - no gesture open
- *   pending  - one press received, waiting for the Decision Window to decide
- *   seeking  - two or more presses, the gesture is a seek and will never change track
+ * State of the press gesture (LOGIC_FOR_PLAY.md 8).
+ *   idle           - no gesture open
+ *   pending        - one press received; if the window expires now, the track changes
+ *   pendingRestart - exactly two presses, both Back; if the window expires now, the track restarts
+ *   seeking        - the gesture is a seek and will never change or restart the track
  */
 public enum GestureState: Equatable, Sendable {
     case idle
     case pending(NavButton)
+    case pendingRestart
     case seeking
 }
 
@@ -64,8 +66,6 @@ public struct PlayLogicSettings: Codable, Equatable, Sendable {
     public var decisionWindow: TimeInterval = 1.6
     // How far one seeking press moves the position.
     public var seekStep: TimeInterval = 3
-    // Single Back at or below this position goes to the previous track, above it restarts.
-    public var restartThreshold: TimeInterval = 3
     // "Resume when a track starts on its own".
     public var resumeOnNaturalAdvance: Bool = true
     public var repeatMode: RepeatMode = .off
@@ -127,7 +127,7 @@ public protocol ResumeStore: AnyObject {
 
 /**
  * Default Resume Memory: one dictionary in UserDefaults.
- * Permanent: survives closing the app and rebuilding from Xcode (LOGIC_FOR_PLAY.md 6.5).
+ * Permanent: survives closing the app and rebuilding from Xcode (LOGIC_FOR_PLAY.md 7.5).
  *
  * Usage:
  *   let store = UserDefaultsResumeStore()
