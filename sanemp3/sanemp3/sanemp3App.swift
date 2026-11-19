@@ -6,8 +6,11 @@
 //
 
 import SwiftUI
-import AVFoundation
 
+/**
+ * The audio session is configured once at app start by AVPlayerEngine (created together with
+ * AppState.shared), not here in a view.
+ */
 @main
 struct sanemp3App: App {
     @Environment(\.scenePhase) private var scenePhase
@@ -16,24 +19,19 @@ struct sanemp3App: App {
         WindowGroup {
             ContentView()
                 .onAppear {
-                    // Prevent screen from locking while app is open
-                    UIApplication.shared.isIdleTimerDisabled = true
-                    // Configure audio session for background playback
-                    try? AVAudioSession.sharedInstance().setCategory(
-                        .playback, mode: .default,
-                        options: []
-                    )
-                    try? AVAudioSession.sharedInstance().setActive(true)
+                    // Apply the stored "Prevent Screen Lock" choice
+                    AppState.shared.applyScreenLockSetting()
                     // Monitor developer certificate expiration and schedule milestone notifications
                     ProvisioningProfileService.shared.startMonitoring()
                 }
                 .onChange(of: scenePhase) { phase in
                     if phase == .active {
-                        UIApplication.shared.isIdleTimerDisabled = true
+                        AppState.shared.applyScreenLockSetting()
                         ProvisioningProfileService.shared.updateCountdown()
                     }
                     if phase == .background || phase == .inactive {
-                        AppState.shared.savePlaybackState()
+                        // Do not lose the position of the current track
+                        AppState.shared.saveResumePoint()
                     }
                 }
         }

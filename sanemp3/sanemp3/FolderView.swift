@@ -10,7 +10,7 @@ struct FolderView: View {
     @EnvironmentObject var state: AppState
     @State private var showFilePicker = false
     @State private var isSelecting = false
-    @State private var selected = Set<UUID>()
+    @State private var selected = Set<String>()
     @State private var showAddToPlaylist = false
     @State private var showRegexSheet = false
     @State private var search = ""
@@ -72,7 +72,7 @@ struct FolderView: View {
                         HStack(spacing: 3) {
                             Image(systemName: "folder")
                             Image(systemName: "chevron.down").font(.caption2)
-                        }.font(.system(size: 15, weight: .semibold))
+                        }.font(.system(size: 15, weight: .semibold)).accessibilityIdentifier("folder-menu")
                     }
                 }
                 // Right: sort + select
@@ -94,11 +94,11 @@ struct FolderView: View {
                                     }
                                 }
                             }
-                        } label: { Image(systemName: "arrow.up.arrow.down") }
+                        } label: { Image(systemName: "arrow.up.arrow.down") }.accessibilityIdentifier("folder-sort-menu")
 
                         Button(isSelecting ? "Done" : "Select") {
                             withAnimation { isSelecting.toggle(); if !isSelecting { selected.removeAll() } }
-                        }.fontWeight(.medium)
+                        }.fontWeight(.medium).accessibilityIdentifier("folder-select-button")
                     }
                 }
             }
@@ -177,7 +177,7 @@ struct FolderView: View {
 
                     Button { state.playQueue(tracks) } label: {
                         Label("Play All", systemImage: "play.fill").font(.caption).fontWeight(.semibold)
-                    }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
+                    }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule).accessibilityIdentifier("folder-play-all-button")
                 } else {
                     Button {
                         showRegexSheet = true
@@ -263,6 +263,8 @@ struct TrackRow: View {
             Text(track.formattedDuration).font(.caption).monospacedDigit().foregroundStyle(.secondary)
         }
         .contentShape(Rectangle()).onTapGesture { onTap() }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("track-row-\(track.id)")
     }
 }
 
@@ -270,8 +272,8 @@ struct TrackRow: View {
 
 struct RegexSelectionSheet: View {
     let tracks: [AudioTrack]
-    let currentSelection: Set<UUID>
-    let onApply: (Set<UUID>) -> Void
+    let currentSelection: Set<String>
+    let onApply: (Set<String>) -> Void
     @Environment(\.dismiss) private var dismiss
 
     @AppStorage("lastSelectionRegex") private var savedRegex: String = ""

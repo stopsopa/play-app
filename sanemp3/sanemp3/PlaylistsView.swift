@@ -32,7 +32,7 @@ struct PlaylistsView: View {
                                         Text(pl.name).font(.body).fontWeight(.semibold)
                                         Text("\(pl.tracks.count) tracks · \(pl.formattedTotal)").font(.caption).foregroundStyle(.secondary)
                                     }
-                                }.padding(.vertical, 3)
+                                }.padding(.vertical, 3).accessibilityIdentifier("playlist-row-\(pl.id.uuidString)")
                             }
                         }
                         .onDelete { idx in idx.forEach { state.deletePlaylist(state.playlists[$0].id) } }
@@ -45,7 +45,7 @@ struct PlaylistsView: View {
             .navigationTitle("Playlists")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { newName = ""; showCreate = true } label: { Image(systemName: "plus") }
+                    Button { newName = ""; showCreate = true } label: { Image(systemName: "plus") }.accessibilityIdentifier("playlist-create-button")
                 }
             }
             .alert("New Playlist", isPresented: $showCreate) {
@@ -92,7 +92,7 @@ struct PlaylistDetailView: View {
                         if !pl.tracks.isEmpty {
                             Button { state.playQueue(pl.tracks) } label: {
                                 Label("Play", systemImage: "play.fill").font(.caption).fontWeight(.semibold)
-                            }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
+                            }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule).accessibilityIdentifier("playlist-play-button")
                         }
                     }
                     .padding(.horizontal).padding(.vertical, 8)
@@ -130,7 +130,7 @@ struct PlaylistDetailView: View {
                                     Button { state.sortPlaylist(playlistId, option: opt) } label: { Text(opt.title) }
                                 }
                             } label: { Image(systemName: "arrow.up.arrow.down") }
-                            Button(isEditing ? "Done" : "Reorder") { withAnimation { isEditing.toggle() } }.fontWeight(.medium)
+                            Button(isEditing ? "Done" : "Reorder") { withAnimation { isEditing.toggle() } }.fontWeight(.medium).accessibilityIdentifier("playlist-reorder-button")
                         }
                         Menu {
                             Button { newName = pl.name; showRename = true } label: { Label("Rename", systemImage: "pencil") }

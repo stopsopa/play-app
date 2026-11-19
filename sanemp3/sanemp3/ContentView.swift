@@ -25,12 +25,15 @@ struct ContentView: View {
             }
             .environmentObject(state)
 
-            // Mini player
-            if state.currentTrack != nil {
-                MiniPlayer { showNowPlaying = true }
-                    .environmentObject(state)
-                    .padding(.bottom, 52)
+            // Playback problem (if any) + Mini player
+            VStack(spacing: 6) {
+                PlaybackErrorBanner()
+                if state.currentTrack != nil {
+                    MiniPlayer { showNowPlaying = true }
+                }
             }
+            .environmentObject(state)
+            .padding(.bottom, 52)
         }
         .applyLockScreenOverlay()
         .trackUserTouches()
@@ -47,7 +50,7 @@ struct ContentView: View {
             #endif
         }
         .onAppear {
-            state.restorePlaybackState()
+            // The last Queue is restored once in AppState.init, not here.
             if state.isUiLockEnabled {
                 state.resetInactivityTimer()
             }

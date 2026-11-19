@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B1C256B130320AFD00A80794 /* PlayLogic in Frameworks */ = {isa = PBXBuildFile; productRef = B1C256B230320AFD00A80794 /* PlayLogic */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		B1C2569430320AFB00A80794 /* sanemp3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = sanemp3.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B1C256B130320AFD00A80794 /* PlayLogic in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = sanemp3;
 			packageProductDependencies = (
+				B1C256B230320AFD00A80794 /* PlayLogic */,
 			);
 			productName = sanemp3;
 			productReference = B1C2569430320AFB00A80794 /* sanemp3.app */;
@@ -94,6 +100,9 @@
 			);
 			mainGroup = B1C2568B30320AFB00A80794;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B1C256B330320AFD00A80794 /* XCLocalSwiftPackageReference "../PlayLogic" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B1C2569530320AFB00A80794 /* Products */;
 			projectDirPath = "";
@@ -334,6 +343,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		B1C256B330320AFD00A80794 /* XCLocalSwiftPackageReference "../PlayLogic" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../PlayLogic;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B1C256B230320AFD00A80794 /* PlayLogic */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PlayLogic;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B1C2568C30320AFB00A80794 /* Project object */;
 }

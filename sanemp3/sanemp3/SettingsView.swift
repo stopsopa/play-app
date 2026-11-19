@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import PlayLogic
 
 struct SettingsView: View {
     @EnvironmentObject var state: AppState
@@ -94,10 +95,10 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Configures the time window allowed between button presses:")
                             .fontWeight(.medium)
-                        Text("• **1 Press (Forward)**: Next track (or restore position)")
-                        Text("• **1 Press (Backward)**: Restart song to 0:00 (if > 5s) or Previous track")
-                        Text("• **2 Presses within \(String(format: "%.1f", state.multiTapInterval))s**: Skip ±3 seconds")
-                        Text("• **3+ Presses**: Each additional press adds +3 seconds skip")
+                        Text("• **1 Press (Forward)**: Next track")
+                        Text("• **1 Press (Backward)**: Previous track")
+                        Text("• **2 Presses (Backward, Backward)**: Restart song to 0:00")
+                        Text("• **Any other 2+ presses within \(String(format: "%.1f", state.multiTapInterval))s of each other**: each further press skips \(state.seekStepLabel) in its direction")
                         Text("• Minimum allowed interval is **0.2s**.")
                     }
                     .font(.caption)
@@ -141,10 +142,7 @@ struct SettingsView: View {
 
                 // MARK: - Playback Settings
                 Section("Playback") {
-                    Toggle(isOn: Binding(
-                        get: { UIApplication.shared.isIdleTimerDisabled },
-                        set: { UIApplication.shared.isIdleTimerDisabled = $0 }
-                    )) {
+                    Toggle(isOn: $state.preventScreenLock) {
                         Label("Prevent Screen Lock", systemImage: "sun.max.fill")
                     }
 
@@ -159,6 +157,36 @@ struct SettingsView: View {
                             Text("\(String(format: "%.2g", rate))×").tag(rate)
                         }
                     }
+                }
+
+                // MARK: - Navigation (settings of the PlayLogic library)
+                Section {
+                    Stepper(value: $state.seekStep, in: 1...30, step: 1) {
+                        HStack {
+                            Label("Seek Step", systemImage: "goforward")
+                            Spacer()
+                            Text(state.seekStepLabel)
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                    }
+                    .accessibilityIdentifier("settings-seek-step-stepper")
+
+                    Toggle(isOn: $state.resumeOnNaturalAdvance) {
+                        Label("Resume when a track starts on its own", systemImage: "arrow.turn.down.right")
+                    }
+                    .accessibilityIdentifier("settings-resume-on-advance-toggle")
+
+                    Picker("Repeat", selection: $state.repeatMode) {
+                        Text("Off").tag(RepeatMode.off)
+                        Text("All").tag(RepeatMode.all)
+                        Text("One").tag(RepeatMode.one)
+                    }
+                    .accessibilityIdentifier("settings-repeat-picker")
+                } header: {
+                    Text("Navigation")
+                } footer: {
+                    Text("Seek Step is how far one seeking press moves. When a track ends and the next one starts by itself, it continues from its remembered position only if the toggle is on. Tracks you pick yourself always resume.")
                 }
 
                 // MARK: - Song Position Memory
@@ -181,7 +209,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Position Memory")
                 } footer: {
-                    Text("The app remembers playback positions (> 5s) when switching songs, allowing you to resume where you left off.")
+                    Text("The app remembers the playback position of every song you leave, allowing you to resume where you left off. A song that played to its end starts from the beginning next time.")
                 }
 
                 // MARK: - Provisioning Profile & Notification Simulation

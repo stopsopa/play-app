@@ -5,6 +5,30 @@
 
 import SwiftUI
 
+// MARK: - Playback error banner
+
+/**
+ * Red line of text shown when a track could not be played (and was skipped) or a folder
+ * could not be opened. Disappears by itself after a few seconds, or on tap.
+ */
+struct PlaybackErrorBanner: View {
+    @EnvironmentObject var state: AppState
+
+    var body: some View {
+        if let message = state.playbackError {
+            Text(message)
+                .font(.caption).fontWeight(.semibold)
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(Color.red.opacity(0.9), in: RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal, 12)
+                .onTapGesture { state.playbackError = nil }
+                .accessibilityIdentifier("playback-error-banner")
+        }
+    }
+}
+
 // MARK: - Mini Player (floating bar)
 
 struct MiniPlayer: View {
@@ -13,42 +37,48 @@ struct MiniPlayer: View {
 
     var body: some View {
         if let track = state.currentTrack {
-            Button(action: onTap) {
-                HStack(spacing: 12) {
-                    // Artwork thumbnail
-                    ZStack {
-                        if let art = state.currentArtwork {
-                            Image(uiImage: art).resizable().aspectRatio(contentMode: .fill)
-                        } else {
-                            AppTheme.brownOrangeGradient
-                            Image(systemName: "music.note").foregroundStyle(.white.opacity(0.85))
-                        }
-                    }
-                    .frame(width: 44, height: 44)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                    // Track info
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(track.displayName).font(.subheadline).fontWeight(.semibold).lineLimit(1)
-                        Text(track.displayArtist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                    }
-                    Spacer()
-
-                    // Skip +3s
-                    Button { state.flashForward() } label: {
-                        Image(systemName: "goforward").font(.title3).frame(width: 36, height: 36)
-                    }
-                    // Play / Pause
-                    Button { state.togglePlay() } label: {
-                        Image(systemName: state.isPlaying ? "pause.fill" : "play.fill").font(.title2).frame(width: 36, height: 36)
+            // A plain row with a tap gesture, not a Button: it contains buttons of its own.
+            HStack(spacing: 12) {
+                // Artwork thumbnail
+                ZStack {
+                    if let art = state.currentArtwork {
+                        Image(uiImage: art).resizable().aspectRatio(contentMode: .fill)
+                    } else {
+                        AppTheme.brownOrangeGradient
+                        Image(systemName: "music.note").foregroundStyle(.white.opacity(0.85))
                     }
                 }
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.06), lineWidth: 1))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 3)
+                .frame(width: 44, height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                // Track info
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(track.displayName).font(.subheadline).fontWeight(.semibold).lineLimit(1)
+                    Text(track.displayArtist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer()
+
+                // Skip forward by one Seek Step
+                Button { state.flashForward() } label: {
+                    Image(systemName: "goforward").font(.title3).frame(width: 36, height: 36)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("mini-player-seek-forward-button")
+                // Play / Pause
+                Button { state.togglePlay() } label: {
+                    Image(systemName: state.isPlaying ? "pause.fill" : "play.fill").font(.title2).frame(width: 36, height: 36)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("mini-player-play-pause-button")
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.06), lineWidth: 1))
+            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 3)
+            .contentShape(RoundedRectangle(cornerRadius: 16))
+            .onTapGesture(perform: onTap)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("mini-player")
             .padding(.horizontal, 12)
             .padding(.bottom, 4)
         }
@@ -60,8 +90,6 @@ struct MiniPlayer: View {
 struct NowPlayingView: View {
     @EnvironmentObject var state: AppState
     @Environment(\.dismiss) var dismiss
-    @State private var isDragging = false
-    @State private var sliderValue: Double = 0
     @State private var showQueue = false
     @State private var showSettings = false
     private let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -80,7 +108,7 @@ struct NowPlayingView: View {
                         .frame(width: 36, height: 4)
                         .padding(.top, 4)
 
-                    // 95% width Cover with 4 big car buttons (-3s, +3s, Prev, Next)
+                    // 95% width Cover with 4 big car buttons (-step, +step, Prev, Next)
                     CoverWithCarButtons(size: coverSize)
                         .environmentObject(state)
 
@@ -98,8 +126,10 @@ struct NowPlayingView: View {
                     }
                     .padding(.horizontal, width * 0.025)
 
+                    PlaybackErrorBanner()
+
                     // Compact Scrubber (progress bar)
-                    scrubber
+                    ScrubberView(progress: state.progress)
                         .padding(.horizontal, width * 0.025)
 
                     // Massive Play / Pause Button (95% width)
@@ -116,6 +146,7 @@ struct NowPlayingView: View {
                         Image(systemName: "chevron.down")
                             .font(.system(size: 16, weight: .bold))
                     }
+                    .accessibilityIdentifier("now-playing-close-button")
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button { showQueue = true } label: {
@@ -128,10 +159,10 @@ struct NowPlayingView: View {
                             }
                         }
                     }
+                    .accessibilityIdentifier("now-playing-queue-button")
 
                     Menu {
-                        Toggle(isOn: Binding(get: { UIApplication.shared.isIdleTimerDisabled },
-                                            set: { UIApplication.shared.isIdleTimerDisabled = $0 })) {
+                        Toggle(isOn: $state.preventScreenLock) {
                             Label("Prevent Screen Lock", systemImage: "sun.max.fill")
                         }
                         Menu("Speed (\(String(format: "%.2gx", state.playbackRate)))") {
@@ -152,52 +183,13 @@ struct NowPlayingView: View {
                         Image(systemName: "ellipsis.circle")
                             .font(.system(size: 18))
                     }
+                    .accessibilityIdentifier("now-playing-more-menu")
                 }
             }
             .sheet(isPresented: $showQueue) { queueSheet }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
                     .environmentObject(state)
-            }
-        }
-    }
-
-    // MARK: Compact Scrubber
-
-    var scrubber: some View {
-        VStack(spacing: 1) {
-            Slider(
-                value: Binding(get: { isDragging ? sliderValue : state.currentTime },
-                               set: { sliderValue = $0 }),
-                in: 0...max(state.duration, 1),
-                onEditingChanged: { editing in
-                    if editing {
-                        sliderValue = state.currentTime
-                        isDragging = true
-                    } else {
-                        let t = sliderValue
-                        isDragging = false
-                        state.seek(to: t)
-                    }
-                }
-            )
-            .tint(AppTheme.orange)
-            .frame(height: 18)
-            .onChange(of: state.currentTime) { v in
-                if !isDragging { sliderValue = v }
-            }
-
-            HStack {
-                Text(fmt(isDragging ? sliderValue : state.currentTime))
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                Spacer()
-                let remaining = max(state.duration - (isDragging ? sliderValue : state.currentTime), 0)
-                Text("-" + fmt(remaining))
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -228,6 +220,7 @@ struct NowPlayingView: View {
             .shadow(color: AppTheme.orange.opacity(0.3), radius: 8, y: 3)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("play-pause-button")
     }
 
     // MARK: Queue sheet
@@ -264,7 +257,9 @@ struct NowPlayingView: View {
                             .foregroundStyle(.secondary)
                     }
                     .contentShape(Rectangle())
-                    .onTapGesture { state.playQueue(state.queue, startingAt: idx) }
+                    .onTapGesture { state.selectQueueIndex(idx) }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("queue-row-\(track.id)")
                 }
 
                 // Extra bottom space so the last queue items are never clipped or hard to tap
@@ -275,12 +270,66 @@ struct NowPlayingView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { showQueue = false }
+                        .accessibilityIdentifier("queue-done-button")
                 }
             }
         }
     }
+}
 
-    func fmt(_ s: TimeInterval) -> String {
+// MARK: - Compact Scrubber
+
+/**
+ * Progress slider with elapsed / remaining time.
+ * It is the only view observing PlaybackProgress, so the 4-times-a-second progress update
+ * redraws just this view and not the whole screen.
+ *
+ * Usage:
+ *   ScrubberView(progress: state.progress)
+ */
+struct ScrubberView: View {
+    @EnvironmentObject var state: AppState
+    @ObservedObject var progress: PlaybackProgress
+    @State private var isDragging = false
+    @State private var sliderValue: Double = 0
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Slider(
+                value: Binding(get: { isDragging ? sliderValue : progress.currentTime },
+                               set: { sliderValue = $0 }),
+                in: 0...max(progress.duration, 1),
+                onEditingChanged: { editing in
+                    if editing {
+                        sliderValue = progress.currentTime
+                        isDragging = true
+                    } else {
+                        let t = sliderValue
+                        isDragging = false
+                        state.seek(to: t)
+                    }
+                }
+            )
+            .tint(AppTheme.orange)
+            .frame(height: 18)
+            .accessibilityIdentifier("scrubber-slider")
+
+            HStack {
+                Text(fmt(isDragging ? sliderValue : progress.currentTime))
+                    .font(.caption2)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                Spacer()
+                let remaining = max(progress.duration - (isDragging ? sliderValue : progress.currentTime), 0)
+                Text("-" + fmt(remaining))
+                    .font(.caption2)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func fmt(_ s: TimeInterval) -> String {
         let t = Int(max(s, 0))
         return String(format: "%d:%02d", t / 60, t % 60)
     }
@@ -288,6 +337,14 @@ struct NowPlayingView: View {
 
 // MARK: - Cover with 4 big car overlay buttons
 
+/**
+ * Top row: direct jump by one Seek Step, back and forward.
+ * Bottom row: Back and Forward presses, exactly the same as the Bluetooth media buttons.
+ * A press there is a gesture: the track changes when the Decision Window closes,
+ * and the pressed square stays lit while it is open.
+ *   Forward            -> next track         Back        -> previous track
+ *   Back, Back         -> restart the track  anything else with 2+ presses -> seek
+ */
 struct CoverWithCarButtons: View {
     @EnvironmentObject var state: AppState
     let size: CGFloat
@@ -321,26 +378,28 @@ struct CoverWithCarButtons: View {
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .shadow(color: .black.opacity(0.18), radius: 12, x: 0, y: 6)
 
-            // 4 large tap zones covering the full square (3:2 ratio favoring -3s button)
+            // 4 large tap zones covering the full square (3:2 ratio favoring the seek-back button)
             VStack(spacing: spacing) {
                 HStack(spacing: spacing) {
-                    // Top-Left: -3s (turns brighter when triggered via remote or tap)
+                    // Top-Left: one Seek Step back (turns brighter when triggered via remote or tap)
                     CarButton(
                         icon: "gobackward",
-                        label: "-3s",
+                        label: "-\(state.seekStepLabel)",
                         isFlashing: state.isRewindActive,
-                        iconColor: .yellow
+                        iconColor: .yellow,
+                        testID: "car-seek-back-button"
                     ) {
                         haptic.impactOccurred()
                         state.flashBackward()
                     }
                     .frame(width: leftWidth, height: topHeight)
 
-                    // Top-Right: +3s (turns brighter when triggered via remote or tap)
+                    // Top-Right: one Seek Step forward (turns brighter when triggered via remote or tap)
                     CarButton(
                         icon: "goforward",
-                        label: "+3s",
-                        isFlashing: state.isForwardActive
+                        label: "+\(state.seekStepLabel)",
+                        isFlashing: state.isForwardActive,
+                        testID: "car-seek-forward-button"
                     ) {
                         haptic.impactOccurred()
                         state.flashForward()
@@ -349,48 +408,35 @@ struct CoverWithCarButtons: View {
                 }
 
                 HStack(spacing: spacing) {
-                    // Bottom-Left: Prev Track or Restart Song
+                    // Bottom-Left: Back press. One = previous track, two = restart the track.
                     CarButton(
-                        icon: state.currentTime > 5 ? "arrow.counterclockwise" : "backward.fill",
-                        label: state.currentTime > 5 ? "Restart" : "Prev Track",
-                        subtitle: state.currentTime > 5 ? "to 0:00" : nil
+                        icon: state.isRestartPending ? "arrow.counterclockwise" : "backward.fill",
+                        label: state.isRestartPending ? "Restart" : "Prev Track",
+                        subtitle: state.isRestartPending ? "to 0:00" : nil,
+                        isFlashing: state.isBackPending,
+                        testID: "car-back-button"
                     ) {
                         haptic.impactOccurred()
-                        state.previousTrack()
+                        state.pressBack()
                     }
                     .frame(width: leftWidth, height: bottomHeight)
 
-                    // Bottom-Right: Next Track or Restore Saved Spot
-                    if let spot = state.savedResetPosition {
-                        CarButton(
-                            icon: "arrow.clockwise",
-                            label: "Restore",
-                            subtitle: "to \(fmt(spot))"
-                        ) {
-                            haptic.impactOccurred()
-                            state.nextTrack()
-                        }
-                        .frame(width: rightWidth, height: bottomHeight)
-                    } else {
-                        CarButton(
-                            icon: "forward.fill",
-                            label: "Next Track"
-                        ) {
-                            haptic.impactOccurred()
-                            state.nextTrack()
-                        }
-                        .frame(width: rightWidth, height: bottomHeight)
+                    // Bottom-Right: Forward press. One = next track.
+                    CarButton(
+                        icon: "forward.fill",
+                        label: "Next Track",
+                        isFlashing: state.isForwardPending,
+                        testID: "car-forward-button"
+                    ) {
+                        haptic.impactOccurred()
+                        state.pressForward()
                     }
+                    .frame(width: rightWidth, height: bottomHeight)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
         .frame(width: size, height: size)
-    }
-
-    private func fmt(_ s: TimeInterval) -> String {
-        let t = Int(max(s, 0))
-        return String(format: "%d:%02d", t / 60, t % 60)
     }
 }
 
@@ -402,6 +448,8 @@ struct CarButton: View {
     var subtitle: String? = nil
     var isFlashing: Bool = false
     var iconColor: Color = .white
+    // Identifier for UI tests.
+    let testID: String
     let action: () -> Void
     @State private var pressed = false
 
@@ -445,6 +493,7 @@ struct CarButton: View {
             .animation(.easeInOut(duration: 0.2), value: isFlashing)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(testID)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in pressed = true }
