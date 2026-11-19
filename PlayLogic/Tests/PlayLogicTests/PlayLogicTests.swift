@@ -116,38 +116,45 @@ final class PlayLogicTests: XCTestCase {
     func testExampleTimeline() {
         let r = Rig()
 
+        let accuracy = 0.001
+
+        // 1:00 Forward, 1:01.6 window expires
         r.tick(60)
         r.logic.press(.forward)
         XCTAssertEqual(r.logic.gestureState, .pending(.forward))
-        r.tick(5)
-        XCTAssertEqual(r.resume(0), 65)
+        r.tick(1.6)
+        XCTAssertEqual(r.resume(0) ?? -1, 61.6, accuracy: accuracy)
         XCTAssertEqual(r.logic.currentIndex, 1)
         XCTAssertEqual(r.engine.position, 0)
 
-        r.tick(2)
+        // 1:03 Back (B at 0:01.4), 1:04.6 window expires
+        r.tick(1.4)
         r.logic.press(.back)
-        r.tick(5)
-        XCTAssertEqual(r.resume(1), 7)
+        r.tick(1.6)
+        XCTAssertEqual(r.resume(1) ?? -1, 3, accuracy: accuracy)
         XCTAssertEqual(r.logic.currentIndex, 0)
-        XCTAssertEqual(r.engine.position, 65)
+        XCTAssertEqual(r.engine.position, 61.6, accuracy: accuracy)
 
-        r.tick(8)
+        // 1:10 Back (A at 1:07), 1:11 Back, 1:12 Back, 1:13.6 window expires
+        r.tick(5.4)
         r.logic.press(.back)
-        XCTAssertEqual(r.engine.position, 73)
-        r.tick(2)
-        r.logic.press(.back)
-        XCTAssertEqual(r.logic.gestureState, .seeking)
-        XCTAssertEqual(r.engine.position, 72)
+        XCTAssertEqual(r.engine.position, 67, accuracy: accuracy)
         r.tick(1)
         r.logic.press(.back)
-        XCTAssertEqual(r.engine.position, 70)
-        r.tick(5)
+        XCTAssertEqual(r.logic.gestureState, .seeking)
+        XCTAssertEqual(r.engine.position, 65, accuracy: accuracy)
+        r.tick(1)
+        r.logic.press(.back)
+        XCTAssertEqual(r.engine.position, 63, accuracy: accuracy)
+        r.tick(1.6)
         XCTAssertEqual(r.logic.gestureState, .idle)
         XCTAssertEqual(r.logic.currentIndex, 0)
+        XCTAssertEqual(r.engine.position, 64.6, accuracy: accuracy)
 
-        r.tick(12)
+        // 1:20 Back (A at 1:11), 1:21.6 window expires
+        r.tick(6.4)
         r.logic.press(.back)
-        r.tick(5)
+        r.tick(1.6)
         XCTAssertEqual(r.logic.currentIndex, 0)
         XCTAssertEqual(r.engine.position, 0)
         XCTAssertTrue(r.engine.playing)
@@ -223,7 +230,7 @@ final class PlayLogicTests: XCTestCase {
     func testTrackEndWhileForwardPendingAdvancesOnce() {
         let r = Rig()
         r.logic.press(.forward)
-        r.tick(2)
+        r.tick(1)
         r.engine.onTrackEnded?()
         XCTAssertEqual(r.logic.currentIndex, 1)
         XCTAssertEqual(r.logic.gestureState, .idle)
@@ -329,7 +336,7 @@ final class PlayLogicTests: XCTestCase {
         r.logic.press(.forward)
         r.logic.settings.seekStep = 10
         r.logic.settings.decisionWindow = 1
-        r.tick(2)
+        r.tick(1.5)
         XCTAssertEqual(r.logic.gestureState, .pending(.forward))
         r.logic.press(.forward)
         XCTAssertEqual(r.engine.position, 110)

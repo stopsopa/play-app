@@ -61,11 +61,11 @@ public enum RepeatMode: String, Codable, Sendable {
  */
 public struct PlayLogicSettings: Codable, Equatable, Sendable {
     // How long we wait after a press for another press.
-    public var decisionWindow: TimeInterval = 5
+    public var decisionWindow: TimeInterval = 1.6
     // How far one seeking press moves the position.
     public var seekStep: TimeInterval = 3
     // Single Back at or below this position goes to the previous track, above it restarts.
-    public var restartThreshold: TimeInterval = 5
+    public var restartThreshold: TimeInterval = 3
     // "Resume when a track starts on its own".
     public var resumeOnNaturalAdvance: Bool = true
     public var repeatMode: RepeatMode = .off

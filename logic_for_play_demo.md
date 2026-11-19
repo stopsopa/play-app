@@ -72,9 +72,9 @@ public struct Track: Identifiable, Hashable, Sendable {
 public enum NavButton: Sendable { case back, forward }
 
 public struct PlayLogicSettings: Codable, Equatable, Sendable {
-    public var decisionWindow: TimeInterval = 5
+    public var decisionWindow: TimeInterval = 1.6
     public var seekStep: TimeInterval = 3
-    public var restartThreshold: TimeInterval = 5
+    public var restartThreshold: TimeInterval = 3
     public var resumeOnNaturalAdvance: Bool = true
     public var repeatQueue: Bool = false
 }

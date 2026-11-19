@@ -10,7 +10,8 @@ import PlayLogic
  * It contains no navigation or resume logic of its own.
  */
 final class DemoModel: ObservableObject {
-    static let settingsKey = "demo.playLogicSettings"
+    // "v2": defaults changed (Decision Window 1.6 s, Restart Threshold 3 s), old stored values are ignored.
+    static let settingsKey = "demo.playLogicSettings.v2"
     static let bookmarkKey = "demo.folderBookmark"
 
     /**

@@ -20,9 +20,9 @@ The same two buttons do both jobs: changing track and seeking inside a track.
 
 | Setting | Default | What it controls |
 | --- | --- | --- |
-| **Decision Window** | 5 s | How long we wait after a press for another press. No further press = the gesture is over. |
+| **Decision Window** | 1.6 s | How long we wait after a press for another press. No further press = the gesture is over. |
 | **Seek Step** | 3 s | How far one seeking press moves the position. |
-| **Restart Threshold** | 5 s | Single Back at or below this position goes to the previous track; above it restarts the current track. |
+| **Restart Threshold** | 3 s | Single Back at or below this position goes to the previous track; above it restarts the current track. |
 | **Resume when a track starts on its own** | on | See below. |
 | **Reset all Resume Points** | button | Forgets the saved position of every track in the app. Every track starts from the beginning next time. |
 
@@ -37,7 +37,7 @@ Suggested text for the settings screen:
 > When one track ends and the next starts automatically, continue it from where you last stopped listening. Turn off to always start it from the beginning. Tracks you switch to yourself always continue from where you stopped.
 
 Decision Window and Seek Step are separate on purpose: one is "how long do I have to press again",
-the other is "how far does a press move". They are different things and want different values (5 s and 3 s).
+the other is "how far does a press move". They are different things and want different values (1.6 s and 3 s).
 
 Restart Threshold can simply reuse the Decision Window value if one setting less is preferred.
 It is listed separately because the Decision Window is also the delay before a track change happens (see 8),
@@ -125,15 +125,15 @@ Queue: A, B, C. All three settings as in the table above.
 | --- | --- | --- |
 | 0:00 | A starts | A plays from 0:00 |
 | 1:00 | Forward | pending |
-| 1:05 | window expires | A's Resume Point = 1:05, B starts at 0:00 |
-| 1:07 | Back (B at 0:02) | pending, position 0:02 remembered |
-| 1:12 | window expires | 0:02 is below threshold: B's Resume Point = 0:07, A starts at **1:05** |
-| 1:20 | Back (A at 1:13) | pending |
-| 1:22 | Back | seek: A to 1:12 (1:15 - 0:03) |
-| 1:23 | Back | seek: A to 1:10 |
-| 1:28 | window expires | gesture over, A keeps playing |
-| 1:40 | Back (A at 1:22) | pending |
-| 1:45 | window expires | above threshold: A restarts from 0:00 |
+| 1:01.6 | window expires | A's Resume Point = 1:01.6, B starts at 0:00 |
+| 1:03 | Back (B at 0:01.4) | pending, position 0:01.4 remembered |
+| 1:04.6 | window expires | 0:01.4 is below threshold: B's Resume Point = 0:03, A starts at **1:01.6** |
+| 1:10 | Back (A at 1:07) | pending |
+| 1:11 | Back | seek: A to 1:05 (1:08 - 0:03) |
+| 1:12 | Back | seek: A to 1:03 (1:06 - 0:03) |
+| 1:13.6 | window expires | gesture over, A keeps playing (now at 1:04.6) |
+| 1:20 | Back (A at 1:11) | pending |
+| 1:21.6 | window expires | above threshold: A restarts from 0:00 |
 
 ## 9. Decisions taken
 

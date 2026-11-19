@@ -90,7 +90,7 @@ struct SettingsBar: View {
     }
 
     private func secondsStepper(_ title: String, value: Binding<TimeInterval>, id: String) -> some View {
-        Stepper(value: value, in: 0.5...60, step: 0.5) {
+        Stepper(value: value, in: 0.1...60, step: 0.1) {
             Text("\(title): \(String(format: "%.1f", value.wrappedValue)) s")
                 .monospacedDigit()
         }
