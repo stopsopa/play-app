@@ -123,6 +123,13 @@ final class AppState: ObservableObject {
     @Published var isRewindActive = false
     @Published var isForwardActive = false
     /**
+     * How many seeking presses of each button the current Seek gesture has so far.
+     * Drives the labels of the top squares: "-3s", "-6s", "-9s"... / "+3s", "+6s"...
+     * Only meaningful while the gesture is a seek; a new Seek gesture starts from 0 again.
+     */
+    @Published private var seekBackCount = 0
+    @Published private var seekForwardCount = 0
+    /**
      * A Back / Forward media button is being held down right now (long press).
      * Drives the small dots in the corners of the top squares: green while held, gray otherwise.
      */
@@ -557,11 +564,23 @@ final class AppState: ObservableObject {
     /**
      * One press of Back or Forward. The library decides what the whole gesture means
      * (next / previous track, restart, or seek). When the press turned out to be a seek,
-     * the matching top square flashes.
+     * the matching top square flashes and its label grows by one Seek Step
+     * ("-3s" -> "-6s" -> "-9s"), until the gesture is over.
      */
     func press(_ button: NavButton) {
+        let wasSeeking = logic.gestureState == .seeking
         logic.press(button)
         if logic.gestureState == .seeking {
+            // First seeking press of a new gesture: forget the counts of the previous one.
+            if !wasSeeking {
+                seekBackCount = 0
+                seekForwardCount = 0
+            }
+            if button == .forward {
+                seekForwardCount += 1
+            } else {
+                seekBackCount += 1
+            }
             flash(button)
         }
     }
@@ -625,11 +644,12 @@ final class AppState: ObservableObject {
     func pressBack() { press(.back) }
     func pressForward() { press(.forward) }
 
-    // A single Back is waiting for its Decision Window, or two Backs are (restart candidate).
-    var isBackPending: Bool { logic.gestureState == .pending(.back) || logic.gestureState == .pendingRestart }
-    // Exactly two Backs so far: the track restarts when the Decision Window closes.
+    // A single Back is waiting for its Decision Window.
+    var isBackPending: Bool { logic.gestureState == .pending(.back) }
+    // Exactly two Forwards so far: the track restarts when the Decision Window closes.
     var isRestartPending: Bool { logic.gestureState == .pendingRestart }
-    var isForwardPending: Bool { logic.gestureState == .pending(.forward) }
+    // A single Forward is waiting for its Decision Window, or two Forwards are (restart candidate).
+    var isForwardPending: Bool { logic.gestureState == .pending(.forward) || logic.gestureState == .pendingRestart }
 
     // MARK: - Rewind / Forward (one Seek Step jump with visual square flashing)
 
@@ -798,6 +818,20 @@ final class AppState: ObservableObject {
 
     // Label for the seek buttons, for example "3s".
     var seekStepLabel: String { "\(Int(logic.settings.seekStep))s" }
+
+    /**
+     * Labels of the top squares. Normally one Seek Step ("-3s" / "+3s").
+     * While a Seek gesture is open they show how far that gesture moved so far in that
+     * direction, as a multiple of the Seek Step ("-6s", "-9s"... / "+6s", "+9s"...),
+     * and go back to one Seek Step when the Decision Window closes.
+     */
+    var seekBackLabel: String { "-\(seekAmountLabel(presses: seekBackCount))" }
+    var seekForwardLabel: String { "+\(seekAmountLabel(presses: seekForwardCount))" }
+
+    private func seekAmountLabel(presses: Int) -> String {
+        let steps = logic.gestureState == .seeking ? max(1, presses) : 1
+        return "\(Int(logic.settings.seekStep * Double(steps)))s"
+    }
 
     // "Resume when a track starts on its own".
     var resumeOnNaturalAdvance: Bool {

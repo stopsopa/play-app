@@ -582,12 +582,12 @@ Full-screen sheet opened from the MINI PLAYER. Built for big targets. Source: `P
 | GRABBER | Small gray capsule hinting the sheet can be dragged down. |
 | COVER | Square, 95% of the screen width. Shows the track's artwork (or a gradient with a note) under four dark tap zones. Left column and top row are wider (3:2). |
 | CAR BUTTON | One of the four zones: icon + label. Darkens while pressed, lights up orange when active. Each gives a haptic tick. |
-| SEEK BACK | Top-left. Jumps back by one Seek Step at once. Label "-3s", yellow icon. Flashes for 0.5 s, also when a remote press ended up as a seek back. |
-| SEEK FWD | Top-right. Jumps forward by one Seek Step at once. Label "+3s". Flashes like SEEK BACK. |
+| SEEK BACK | Top-left. Jumps back by one Seek Step at once. Label "-3s", yellow icon. Flashes for 0.5 s, also when a remote press ended up as a seek back. While a Seek gesture is open the label shows how far the gesture moved back so far, as a multiple of the Seek Step ("-6s", "-9s"...), and returns to "-3s" when the Decision Window closes. |
+| SEEK FWD | Top-right. Jumps forward by one Seek Step at once. Label "+3s". Flashes like SEEK BACK, and its label grows the same way ("+6s", "+9s"...). |
 | BACK DOT | Small dot in the top-right corner of SEEK BACK. Gray; shows the physical Back (previous track) media button. A short press lights it green for 0.3 s (iOS reports a short press as one event, without "down" and "up"). A long press keeps it green until the button is released, on remotes that report long presses. |
 | FWD DOT | Small dot in the top-right corner of SEEK FWD. Same, for the Forward (next track) media button. |
-| PREV TRACK | Bottom-left. One Back press, same as the Bluetooth button: one press = previous track, two = restart the track. Stays lit while the app waits for another press; after two presses it reads "Restart / to 0:00". |
-| NEXT TRACK | Bottom-right. One Forward press, same as the Bluetooth button: one press = next track. Stays lit while the app waits for another press. |
+| PREV TRACK | Bottom-left. One Back press, same as the Bluetooth button: one press = previous track. Stays lit while the app waits for another press. |
+| NEXT TRACK | Bottom-right. One Forward press, same as the Bluetooth button: one press = next track, two = restart the track. Stays lit while the app waits for another press; after two presses it reads "Restart / to 0:00". |
 | PLAYER TITLE | Name of the current track, or "Not Playing". |
 | PLAYER ARTIST | Artist of the current track. |
 | SCRUBBER | Orange slider of the position. Drag and release to seek. |

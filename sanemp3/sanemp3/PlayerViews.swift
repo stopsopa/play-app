@@ -384,7 +384,7 @@ struct CoverWithCarButtons: View {
                     // Top-Left: one Seek Step back (turns brighter when triggered via remote or tap)
                     CarButton(
                         icon: "gobackward",
-                        label: "-\(state.seekStepLabel)",
+                        label: state.seekBackLabel,
                         isFlashing: state.isRewindActive,
                         iconColor: .yellow,
                         isHeld: state.isBackHeld,
@@ -398,7 +398,7 @@ struct CoverWithCarButtons: View {
                     // Top-Right: one Seek Step forward (turns brighter when triggered via remote or tap)
                     CarButton(
                         icon: "goforward",
-                        label: "+\(state.seekStepLabel)",
+                        label: state.seekForwardLabel,
                         isFlashing: state.isForwardActive,
                         isHeld: state.isForwardHeld,
                         testID: "car-seek-forward-button"
@@ -410,11 +410,10 @@ struct CoverWithCarButtons: View {
                 }
 
                 HStack(spacing: spacing) {
-                    // Bottom-Left: Back press. One = previous track, two = restart the track.
+                    // Bottom-Left: Back press. One = previous track.
                     CarButton(
-                        icon: state.isRestartPending ? "arrow.counterclockwise" : "backward.fill",
-                        label: state.isRestartPending ? "Restart" : "Prev Track",
-                        subtitle: state.isRestartPending ? "to 0:00" : nil,
+                        icon: "backward.fill",
+                        label: "Prev Track",
                         isFlashing: state.isBackPending,
                         testID: "car-back-button"
                     ) {
@@ -423,10 +422,11 @@ struct CoverWithCarButtons: View {
                     }
                     .frame(width: leftWidth, height: bottomHeight)
 
-                    // Bottom-Right: Forward press. One = next track.
+                    // Bottom-Right: Forward press. One = next track, two = restart the track.
                     CarButton(
-                        icon: "forward.fill",
-                        label: "Next Track",
+                        icon: state.isRestartPending ? "arrow.counterclockwise" : "forward.fill",
+                        label: state.isRestartPending ? "Restart" : "Next Track",
+                        subtitle: state.isRestartPending ? "to 0:00" : nil,
                         isFlashing: state.isForwardPending,
                         testID: "car-forward-button"
                     ) {
