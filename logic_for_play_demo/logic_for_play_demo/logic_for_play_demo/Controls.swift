@@ -42,7 +42,7 @@ struct DecisionWindowIndicator: View {
         case .pending(.forward):
             return "DECISION WINDOW ACTIVE: PENDING forward (\(left))"
         case .pendingRestart:
-            return "DECISION WINDOW ACTIVE: PENDING restart, 2x back (\(left))"
+            return "DECISION WINDOW ACTIVE: PENDING restart, 2x forward (\(left))"
         case .seeking:
             return "DECISION WINDOW ACTIVE: SEEKING (\(left))"
         }

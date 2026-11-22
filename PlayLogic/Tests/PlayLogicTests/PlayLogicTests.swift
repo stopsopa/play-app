@@ -135,32 +135,30 @@ final class PlayLogicTests: XCTestCase {
         XCTAssertEqual(r.logic.currentIndex, 0)
         XCTAssertEqual(r.engine.position, 61.6, accuracy: accuracy)
 
-        // 1:20 Back (A at 1:10), 1:21 Back, 1:22 Back, 1:23 Back, 1:24.6 window expires
+        // 1:20 Back (A at 1:10), 1:21 Back, 1:22 Back, 1:23.6 window expires
         r.tick(8.4)
         r.logic.press(.back)
         XCTAssertEqual(r.engine.position, 70, accuracy: accuracy)
         r.tick(1)
         r.logic.press(.back)
-        XCTAssertEqual(r.logic.gestureState, .pendingRestart)
-        XCTAssertEqual(r.engine.position, 71, accuracy: accuracy)
-        r.tick(1)
-        r.logic.press(.back)
         XCTAssertEqual(r.logic.gestureState, .seeking)
-        XCTAssertEqual(r.engine.position, 69, accuracy: accuracy)
+        XCTAssertEqual(r.engine.position, 68, accuracy: accuracy)
         r.tick(1)
         r.logic.press(.back)
-        XCTAssertEqual(r.engine.position, 67, accuracy: accuracy)
+        XCTAssertEqual(r.engine.position, 66, accuracy: accuracy)
         r.tick(1.6)
         XCTAssertEqual(r.logic.gestureState, .idle)
         XCTAssertEqual(r.logic.currentIndex, 0)
-        XCTAssertEqual(r.engine.position, 68.6, accuracy: accuracy)
+        XCTAssertEqual(r.engine.position, 67.6, accuracy: accuracy)
 
-        // 1:30 Back (A at 1:14), 1:31 Back, 1:32.6 window expires
-        r.tick(5.4)
-        r.logic.press(.back)
+        // 1:30 Forward (A at 1:14), 1:31 Forward, 1:32.6 window expires
+        r.tick(6.4)
+        r.logic.press(.forward)
         XCTAssertEqual(r.engine.position, 74, accuracy: accuracy)
         r.tick(1)
-        r.logic.press(.back)
+        r.logic.press(.forward)
+        XCTAssertEqual(r.logic.gestureState, .pendingRestart)
+        XCTAssertEqual(r.engine.position, 75, accuracy: accuracy)
         r.tick(1.6)
         XCTAssertEqual(r.logic.currentIndex, 0)
         XCTAssertEqual(r.engine.position, 0)
@@ -170,13 +168,13 @@ final class PlayLogicTests: XCTestCase {
     // Section 6 examples. Paused, so only the seeks move the position.
     func testSeekExamples() {
         let cases: [([NavButton], TimeInterval)] = [
-            ([.forward, .forward], 103),
-            ([.forward, .forward, .forward, .forward], 109),
-            ([.back, .back, .back], 97),
-            ([.back, .back, .back, .back], 94),
+            ([.back, .back], 97),
+            ([.back, .back, .back, .back], 91),
+            ([.forward, .forward, .forward], 103),
+            ([.forward, .forward, .forward, .forward], 106),
             ([.forward, .back], 97),
             ([.back, .forward], 103),
-            ([.back, .back, .forward], 103),
+            ([.forward, .forward, .back], 97),
         ]
         for (buttons, expected) in cases {
             let r = Rig(startAt: 1, play: false, position: 100)
@@ -199,7 +197,8 @@ final class PlayLogicTests: XCTestCase {
 
     func testSeekPastEndFinishesTrack() {
         let r = Rig(startAt: 0, play: false, position: 299)
-        r.presses([.forward, .forward])
+        // The first two Forwards move nothing, the third one seeks.
+        r.presses([.forward, .forward, .forward])
         XCTAssertEqual(r.logic.currentIndex, 1)
         XCTAssertEqual(r.resume(0), 0)
         XCTAssertEqual(r.logic.gestureState, .idle)
@@ -237,10 +236,10 @@ final class PlayLogicTests: XCTestCase {
         XCTAssertEqual(r.resume(1), 100)
     }
 
-    // Exactly two Backs: nothing moves until the window expires, then the track restarts.
-    func testDoubleBackRestartsTrack() {
+    // Exactly two Forwards: nothing moves until the window expires, then the track restarts.
+    func testDoubleForwardRestartsTrack() {
         let r = Rig(startAt: 1, play: false, position: 100)
-        r.presses([.back, .back])
+        r.presses([.forward, .forward])
         XCTAssertEqual(r.logic.gestureState, .pendingRestart)
         XCTAssertEqual(r.engine.position, 100)
         r.tick(5)
@@ -357,13 +356,13 @@ final class PlayLogicTests: XCTestCase {
     // New settings apply from the next press; the running window keeps its length.
     func testSettingsChangeDuringGesture() {
         let r = Rig(startAt: 1, play: false, position: 100)
-        r.logic.press(.forward)
+        r.logic.press(.back)
         r.logic.settings.seekStep = 10
         r.logic.settings.decisionWindow = 1
         r.tick(1.5)
-        XCTAssertEqual(r.logic.gestureState, .pending(.forward))
-        r.logic.press(.forward)
-        XCTAssertEqual(r.engine.position, 110)
+        XCTAssertEqual(r.logic.gestureState, .pending(.back))
+        r.logic.press(.back)
+        XCTAssertEqual(r.engine.position, 90)
         r.tick(1)
         XCTAssertEqual(r.logic.gestureState, .idle)
     }

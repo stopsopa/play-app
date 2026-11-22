@@ -142,17 +142,18 @@ public final class PlayLogicController: ObservableObject {
 
     /**
      * One Press of Back or Forward (LOGIC_FOR_PLAY.md 4, 5, 6, 8).
-     *   first press         - opens the gesture, moves nothing
-     *   Back after one Back - still moves nothing: two Backs so far (restart candidate)
-     *   any other press     - seeks one Seek Step in the direction of that press
-     *   every press         - restarts the Decision Window
+     *   first press               - opens the gesture, moves nothing
+     *   Forward after one Forward - still moves nothing: two Forwards so far (restart candidate)
+     *   any other press           - seeks one Seek Step in the direction of that press
+     *   every press               - restarts the Decision Window
      * When the window expires:
-     *   one Forward -> next track, one Back -> previous track, exactly two Backs -> restart track,
-     *   anything else was a seek -> nothing.
+     *   one Forward -> next track, one Back -> previous track,
+     *   exactly two Forwards -> restart track, anything else was a seek -> nothing.
      *
-     *   Forward, Forward       = +1 step      Back, Back             = restart
-     *   Forward, Back          = -1 step      Back, Back, Back       = -1 step
-     *   Back, Forward          = +1 step      Back, Back, Back, Back = -2 steps
+     *   Back, Back       = -1 step      Forward, Forward                   = restart
+     *   Back, Forward    = +1 step      Forward, Forward, Forward          = +1 step
+     *   Forward, Back    = -1 step      Forward, Forward, Forward, Forward = +2 steps
+     *                                   Forward, Forward, Back             = -1 step
      */
     public func press(_ button: NavButton) {
         guard currentIndex != nil else { return }
@@ -169,7 +170,7 @@ public final class PlayLogicController: ObservableObject {
         switch (gestureState, button) {
         case (.idle, _):
             gestureState = .pending(button)
-        case (.pending(.back), .back):
+        case (.pending(.forward), .forward):
             gestureState = .pendingRestart
         default:
             gestureState = .seeking
@@ -245,7 +246,7 @@ public final class PlayLogicController: ObservableObject {
             }
         case .pendingRestart:
             /**
-             * Exactly two Backs: restart. Only seeks to 0, the Resume Point is rewritten
+             * Exactly two Forwards: restart. Only seeks to 0, the Resume Point is rewritten
              * later, when we leave.
              */
             engine.seek(to: 0)

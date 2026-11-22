@@ -131,8 +131,8 @@ Also ship in the package:
 
 - State machine `IDLE -> PENDING -> PENDING_RESTART -> SEEKING` (section 8). There is no Restart Threshold: the position in the track plays no role.
 - Single-press action runs when the window expires (section 4), including queue edges: Forward = next track, Back = previous track from any position.
-- Double-Back (exactly two presses, both Back) restarts the track when the window expires (section 5). Neither press moves anything.
-- Seek gesture (section 6): every other gesture with two or more presses. Forward gestures seek from the second press, Back gestures from the third. Each seeking press moves one Seek Step in the direction of that press, each press restarts the window. Clamp at `0` and at the end.
+- Double-Forward (exactly two presses, both Forward) restarts the track when the window expires (section 5). Neither press moves anything.
+- Seek gesture (section 6): every other gesture with two or more presses. Back gestures seek from the second press, Forward gestures from the third. Each seeking press moves one Seek Step in the direction of that press, each press restarts the window. Clamp at `0` and at the end.
 - Resume Point rules 1 to 6 (section 7): save on leave, restore on land, clear on natural end, restart only seeks, permanent, stable key.
 - Natural advance obeys `resumeOnNaturalAdvance` (section 2). User actions always resume.
 - Any track change cancels the gesture (section 8). Play/pause state is kept across track changes and seeks. The logic works the same while paused.
@@ -253,5 +253,5 @@ What adopting the library will need in `sanemp3` (separate task):
 - Replace `playQueue` with `setQueue(_:startAt:play:)`, list taps with `select(index:)`, the scrubber with `seek(to:)`.
 - Remove `forwardClickCount`, tap tasks, `savedResetPosition`, `savedTrackPositions` and `nextTrack` / `previousTrack` (fixes 1, 2, 3).
 - Call `saveCurrentResumePoint()` when the app goes to background.
-- Map `multiTapInterval` to `settings.decisionWindow`; add settings UI for Seek Step and "Resume when a track starts on its own". The hardcoded 5 s restart threshold goes away: single Back = previous track, Double-Back = restart.
+- Map `multiTapInterval` to `settings.decisionWindow`; add settings UI for Seek Step and "Resume when a track starts on its own". The hardcoded 5 s restart threshold goes away: single Back = previous track, Double-Forward = restart.
 - Add the audio background mode (fixes 4). The library also resolves a late timer on the next press.

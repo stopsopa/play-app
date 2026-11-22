@@ -31,7 +31,7 @@ public enum NavButton: Equatable, Sendable {
  * State of the press gesture (LOGIC_FOR_PLAY.md 8).
  *   idle           - no gesture open
  *   pending        - one press received; if the window expires now, the track changes
- *   pendingRestart - exactly two presses, both Back; if the window expires now, the track restarts
+ *   pendingRestart - exactly two presses, both Forward; if the window expires now, the track restarts
  *   seeking        - the gesture is a seek and will never change or restart the track
  */
 public enum GestureState: Equatable, Sendable {
