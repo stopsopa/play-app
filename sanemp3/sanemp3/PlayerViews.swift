@@ -387,6 +387,7 @@ struct CoverWithCarButtons: View {
                         label: "-\(state.seekStepLabel)",
                         isFlashing: state.isRewindActive,
                         iconColor: .yellow,
+                        isHeld: state.isBackHeld,
                         testID: "car-seek-back-button"
                     ) {
                         haptic.impactOccurred()
@@ -399,6 +400,7 @@ struct CoverWithCarButtons: View {
                         icon: "goforward",
                         label: "+\(state.seekStepLabel)",
                         isFlashing: state.isForwardActive,
+                        isHeld: state.isForwardHeld,
                         testID: "car-seek-forward-button"
                     ) {
                         haptic.impactOccurred()
@@ -448,6 +450,13 @@ struct CarButton: View {
     var subtitle: String? = nil
     var isFlashing: Bool = false
     var iconColor: Color = .white
+    /**
+     * Hold indicator dot in the top-right corner.
+     *   nil   -> no dot (default)
+     *   false -> gray dot: the matching media button is not held
+     *   true  -> green dot: the matching media button is held down right now
+     */
+    var isHeld: Bool? = nil
     // Identifier for UI tests.
     let testID: String
     let action: () -> Void
@@ -489,6 +498,18 @@ struct CarButton: View {
                 .shadow(color: isFlashing ? Color.orange : Color.black.opacity(0.8), radius: isFlashing ? 8 : 4, x: 0, y: 1)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Hold indicator dot. Not animated: it goes gray the moment the button is released.
+            .overlay(alignment: .topTrailing) {
+                if let isHeld {
+                    Circle()
+                        .fill(isHeld ? Color.green : Color.gray)
+                        .frame(width: 12, height: 12)
+                        .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1))
+                        .padding(12)
+                        .animation(nil, value: isHeld)
+                        .accessibilityIdentifier("\(testID)-hold-dot")
+                }
+            }
             .contentShape(Rectangle())
             .animation(.easeInOut(duration: 0.2), value: isFlashing)
         }

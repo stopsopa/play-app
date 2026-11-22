@@ -122,6 +122,18 @@ final class AppState: ObservableObject {
     // MARK: - Visual Flash Indicators (Top Squares turn brighter)
     @Published var isRewindActive = false
     @Published var isForwardActive = false
+    /**
+     * A Back / Forward media button is being held down right now (long press).
+     * Drives the small dots in the corners of the top squares: green while held, gray otherwise.
+     */
+    @Published var isBackHeld = false
+    @Published var isForwardHeld = false
+    // A long press (seek "begin" without "end" yet) is in progress.
+    private var backLongHeld = false
+    private var forwardLongHeld = false
+    // Turn the dot off again after the blink of a short press.
+    private var backDotTask: Task<Void, Never>?
+    private var forwardDotTask: Task<Void, Never>?
     private var rewindResetTask: Task<Void, Never>?
     private var forwardResetTask: Task<Void, Never>?
 
@@ -554,6 +566,62 @@ final class AppState: ObservableObject {
         }
     }
 
+    /**
+     * A media button went down (held: true) or was released (held: false).
+     * Only moves the hold indicator dot, it is not a press.
+     *
+     * Usage:
+     *   setHeld(.back, true)      // long press of Back started
+     *   setHeld(.back, false)     // Back released
+     */
+    func setHeld(_ button: NavButton, _ held: Bool) {
+        let forward = button == .forward
+        if forward {
+            forwardLongHeld = held
+            forwardDotTask?.cancel()
+            isForwardHeld = held
+        } else {
+            backLongHeld = held
+            backDotTask?.cancel()
+            isBackHeld = held
+        }
+    }
+
+    /**
+     * A short press of a media button arrived. iOS reports a short press as ONE event, with no
+     * separate "down" and "up", so the real hold time is unknown: the dot is lit for a moment.
+     * Presses arriving faster than that keep the dot lit without a gap.
+     * Does nothing while a long press of the same button is in progress (the dot is already lit).
+     *
+     * Usage:
+     *   blinkHeld(.forward)
+     */
+    func blinkHeld(_ button: NavButton) {
+        let forward = button == .forward
+        if forward ? forwardLongHeld : backLongHeld { return }
+        if forward {
+            isForwardHeld = true
+            forwardDotTask?.cancel()
+        } else {
+            isBackHeld = true
+            backDotTask?.cancel()
+        }
+        let task = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            if Task.isCancelled { return }
+            if forward {
+                self.isForwardHeld = false
+            } else {
+                self.isBackHeld = false
+            }
+        }
+        if forward {
+            forwardDotTask = task
+        } else {
+            backDotTask = task
+        }
+    }
+
     func pressBack() { press(.back) }
     func pressForward() { press(.forward) }
 
@@ -831,6 +899,7 @@ final class AppState: ObservableObject {
         cc.skipForwardCommand.isEnabled = true
         cc.skipForwardCommand.preferredIntervals = [3]
         cc.skipForwardCommand.addTarget { [weak self] _ in
+            self?.blinkHeld(.forward)
             self?.press(.forward)
             return .success
         }
@@ -838,6 +907,7 @@ final class AppState: ObservableObject {
         cc.skipBackwardCommand.isEnabled = true
         cc.skipBackwardCommand.preferredIntervals = [3]
         cc.skipBackwardCommand.addTarget { [weak self] _ in
+            self?.blinkHeld(.back)
             self?.press(.back)
             return .success
         }
@@ -845,6 +915,7 @@ final class AppState: ObservableObject {
         // Bluetooth Remote Forward buttons (Next track / Seek forward)
         cc.nextTrackCommand.isEnabled = true
         cc.nextTrackCommand.addTarget { [weak self] _ in
+            self?.blinkHeld(.forward)
             self?.press(.forward)
             return .success
         }
@@ -856,7 +927,10 @@ final class AppState: ObservableObject {
          */
         cc.seekForwardCommand.isEnabled = true
         cc.seekForwardCommand.addTarget { [weak self] e in
-            if (e as? MPSeekCommandEvent)?.type == .beginSeeking {
+            // "begin" lights the hold dot, anything else ("end") turns it off.
+            let began = (e as? MPSeekCommandEvent)?.type == .beginSeeking
+            self?.setHeld(.forward, began)
+            if began {
                 self?.press(.forward)
             }
             return .success
@@ -865,6 +939,7 @@ final class AppState: ObservableObject {
         // Bluetooth Remote Backward buttons (Prev track / Seek backward)
         cc.previousTrackCommand.isEnabled = true
         cc.previousTrackCommand.addTarget { [weak self] _ in
+            self?.blinkHeld(.back)
             self?.press(.back)
             return .success
         }
@@ -872,7 +947,10 @@ final class AppState: ObservableObject {
         // Long press, same remark as for seekForwardCommand above.
         cc.seekBackwardCommand.isEnabled = true
         cc.seekBackwardCommand.addTarget { [weak self] e in
-            if (e as? MPSeekCommandEvent)?.type == .beginSeeking {
+            // "begin" lights the hold dot, anything else ("end") turns it off.
+            let began = (e as? MPSeekCommandEvent)?.type == .beginSeeking
+            self?.setHeld(.back, began)
+            if began {
                 self?.press(.back)
             }
             return .success
